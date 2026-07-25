@@ -62,7 +62,7 @@
               <li><span class="bonus-icon">✦</span><span><strong>/hat</strong> — стиль прямо на голове</span></li>
               <li><span class="bonus-icon">✦</span><span><strong>+1 слот</strong> в доме</span></li>
             </ul>
-            <a class="btn btn-primary card-button" href="#buy-vip">Купить</a>
+            <button class="btn btn-primary card-button js-buy" type="button" data-product="VIP" data-price="500">Купить</button>
           </article>
 
           <article class="glass-card rank-card featured">
@@ -77,7 +77,7 @@
               <li><span class="bonus-icon">✦</span><span><strong>/heal</strong> и <strong>/feed</strong> — всегда в форме</span></li>
               <li><span class="bonus-icon">✦</span><span><strong>+3 слота</strong> для твоих баз</span></li>
             </ul>
-            <a class="btn btn-primary card-button" href="#buy-ultra">Купить</a>
+            <button class="btn btn-primary card-button js-buy" type="button" data-product="Ultra VIP" data-price="1000">Купить</button>
           </article>
 
           <article class="glass-card rank-card">
@@ -91,7 +91,7 @@
               <li><span class="bonus-icon">✦</span><span><strong>/trade</strong> — сделки без риска</span></li>
               <li><span class="bonus-icon">✦</span><span>Эксклюзивный кик и <strong>+5 слотов</strong></span></li>
             </ul>
-            <a class="btn btn-primary card-button" href="#buy-legend">Купить</a>
+            <button class="btn btn-primary card-button js-buy" type="button" data-product="Legend" data-price="2000">Купить</button>
           </article>
 
           <article class="glass-card rank-card god-card">
@@ -106,7 +106,7 @@
               <li><span class="bonus-icon">✦</span><span><strong>+10 слотов</strong> и полный простор</span></li>
               <li><span class="bonus-icon">✦</span><span>Доступ к секретному <strong>тест-миру</strong></span></li>
             </ul>
-            <a class="btn btn-primary card-button" href="#buy-god">Купить</a>
+            <button class="btn btn-primary card-button js-buy" type="button" data-product="God" data-price="5000">Купить</button>
           </article>
         </div>
       </section>
@@ -121,18 +121,27 @@
         <div class="kit-grid">
           <article class="glass-card kit-card">
             <div class="item-icon diamond" aria-hidden="true"></div>
-            <h3>Алмазный кит</h3>
-            <p>Алмазы, зачарованная броня и инструменты, чтобы стартовать как чемпион.</p>
+            <h3>Ресурсы и киты</h3>
+            <p>Алмазы, броня, инструменты и готовые наборы для старта без долгого фарма.</p>
+            <button class="btn btn-primary kit-button js-open-pack" type="button" data-pack="resources">Купить набор</button>
           </article>
           <article class="glass-card kit-card">
             <div class="item-icon potion" aria-hidden="true"></div>
             <h3>Элитный набор зелий</h3>
-            <p>Скорость, сила, регенерация и огнестойкость — всё для уверенной победы.</p>
+            <p>Сила, скорость, исцеление и регенерация — выбери зелье под свой стиль боя.</p>
+            <button class="btn btn-primary kit-button js-open-pack" type="button" data-pack="potions">Купить зелья</button>
           </article>
           <article class="glass-card kit-card">
             <div class="item-icon key" aria-hidden="true"></div>
             <h3>Ключи от кейсов</h3>
             <p>Открывай кейсы с редкими ресурсами, косметикой и мощными бонусами.</p>
+            <button class="btn btn-primary kit-button js-open-pack" type="button" data-pack="keys">Купить кейсы</button>
+          </article>
+          <article class="glass-card kit-card">
+            <div class="item-icon chest" aria-hidden="true"></div>
+            <h3>Боевые киты</h3>
+            <p>PvP, рейды и выживание: готовые комплекты для тех, кто выходит побеждать.</p>
+            <button class="btn btn-primary kit-button js-open-pack" type="button" data-pack="kits">Купить киты</button>
           </article>
         </div>
       </section>
@@ -153,6 +162,59 @@
       </div>
     </footer>
   </div>
+
+  <div class="modal-overlay" id="shopModal" aria-hidden="true">
+    <div class="modal-window" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <button class="modal-close" type="button" aria-label="Закрыть окно">×</button>
+      <div class="modal-grid">
+        <div class="modal-main">
+          <p class="eyebrow">Оформление покупки</p>
+          <h2 id="modalTitle">Выбери товар</h2>
+          <p class="modal-description" id="modalDescription">Подтверди набор, выбери способ оплаты и забирай бонусы на сервере.</p>
+
+          <div class="variant-list" id="variantList" aria-label="Выбор товара"></div>
+
+          <div class="promo-box">
+            <label for="promoInput">Промокод</label>
+            <div class="promo-row">
+              <input id="promoInput" type="text" placeholder="Например: KanMine2026" autocomplete="off" />
+              <button class="btn btn-ghost" id="applyPromo" type="button">Активировать</button>
+            </div>
+            <p class="promo-hint" id="promoHint">Промокод <strong>KanMine2026</strong> даёт скидку 100%.</p>
+          </div>
+        </div>
+
+        <aside class="checkout-card">
+          <h3>Способ оплаты</h3>
+          <div class="payment-options" role="radiogroup" aria-label="Способ оплаты">
+            <button class="payment-option active" type="button" data-payment="СБП">⚡ СБП</button>
+            <button class="payment-option" type="button" data-payment="Банковская карта">💳 Карта</button>
+            <button class="payment-option" type="button" data-payment="Криптовалюта">₿ Крипта</button>
+            <button class="payment-option" type="button" data-payment="ЮMoney / кошелёк">🎮 Кошелёк</button>
+          </div>
+
+          <div class="total-box">
+            <span>К оплате</span>
+            <strong id="totalPrice">0 руб.</strong>
+            <small id="discountLine">Скидка не применена</small>
+          </div>
+
+          <button class="btn btn-primary checkout-button" id="checkoutButton" type="button">Перейти к оплате</button>
+          <p class="checkout-note">Макет оплаты: после выбора способа можно подключить реальную платёжную систему.</p>
+        </aside>
+      </div>
+    </div>
+  </div>
+
+  <div class="congrats" id="congrats" aria-hidden="true">
+    <div class="congrats-card">
+      <div class="congrats-icon">🎉</div>
+      <h2>Промокод активирован!</h2>
+      <p>KanMine2026 сработал: скидка 100%. Забирай бонус бесплатно и врывайся на сервер как легенда!</p>
+      <button class="btn btn-primary" id="closeCongrats" type="button">Круто, забираю!</button>
+    </div>
+  </div>
+
 
   <script src="script.js"></script>
 </body>
