@@ -2,12 +2,20 @@ const canvas = document.getElementById('orbCanvas');
 const ctx = canvas.getContext('2d');
 
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-const PARTICLE_COUNT = 28;
+const BASE_PARTICLE_COUNT = 28;
 let width = 0;
 let height = 0;
 let dpr = 1;
 let particles = [];
 let animationFrame;
+let resizeTimer;
+
+function getParticleCount() {
+  if (prefersReducedMotion) return 12;
+  if (window.innerWidth <= 520) return 18;
+  if (window.innerWidth <= 900) return 22;
+  return BASE_PARTICLE_COUNT;
+}
 
 function random(min, max) {
   return Math.random() * (max - min) + min;
@@ -63,7 +71,7 @@ function resize() {
   canvas.style.width = `${width}px`;
   canvas.style.height = `${height}px`;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  particles = Array.from({ length: PARTICLE_COUNT }, (_, index) => createParticle(index));
+  particles = Array.from({ length: getParticleCount() }, (_, index) => createParticle(index));
 }
 
 function drawOrb(x, y, radius, alpha, glow) {
@@ -106,9 +114,12 @@ function render(time = 0) {
 resize();
 render();
 window.addEventListener('resize', () => {
-  cancelAnimationFrame(animationFrame);
-  resize();
-  render();
+  window.clearTimeout(resizeTimer);
+  resizeTimer = window.setTimeout(() => {
+    cancelAnimationFrame(animationFrame);
+    resize();
+    render();
+  }, 120);
 });
 
 (() => {
