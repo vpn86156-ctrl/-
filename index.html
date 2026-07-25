@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Магазин привилегий Minecraft-сервера KanMine: VIP, Ultra VIP, Legend, God и донатные наборы." />
+  <title>KanMine — магазин привилегий</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <canvas id="orbCanvas" aria-hidden="true"></canvas>
+
+  <div class="page-shell">
+    <header class="site-header">
+      <a class="logo" href="#top" aria-label="KanMine — на главную">
+        <span class="logo-mark">K</span>
+        <span>KanMine</span>
+      </a>
+
+      <nav class="main-nav" aria-label="Основное меню">
+        <a href="#top">Главная</a>
+        <a href="#shop">Магазин</a>
+        <a href="#rules">Правила</a>
+      </nav>
+
+      <div class="online-counter" aria-label="Онлайн игроков">
+        <span class="online-dot"></span>
+        <span><strong>247</strong> онлайн</span>
+      </div>
+    </header>
+
+    <main id="top">
+      <section class="hero" aria-labelledby="hero-title">
+        <p class="eyebrow">Премиум-магазин сервера</p>
+        <h1 id="hero-title">Повысь свой ранг на KanMine</h1>
+        <p class="hero-subtitle">Выбери привилегию и получи мощные бонусы: комфортный геймплей, быстрый прогресс и статус, который видно сразу.</p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="#shop">Смотреть все ранги</a>
+          <a class="btn btn-ghost" href="#kits">Донатные наборы</a>
+        </div>
+      </section>
+
+      <section class="ranks-section" id="shop" aria-labelledby="ranks-title">
+        <div class="section-heading">
+          <p class="eyebrow">Ранги</p>
+          <h2 id="ranks-title">Привилегии для тех, кто играет на максимум</h2>
+          <p>От уверенного старта до полного контроля над приключением — выбери свой уровень силы.</p>
+        </div>
+
+        <div class="rank-grid">
+          <article class="glass-card rank-card">
+            <div class="rank-top">
+              <h3>VIP</h3>
+              <p class="price">500 <span>руб.</span></p>
+            </div>
+            <ul class="bonus-list">
+              <li><span class="bonus-icon">✦</span><span><strong>/kit vip</strong> — быстрый стартовый набор</span></li>
+              <li><span class="bonus-icon">✦</span><span><strong>/fly</strong> — полёт без границ</span></li>
+              <li><span class="bonus-icon">✦</span><span><strong>/hat</strong> — стиль прямо на голове</span></li>
+              <li><span class="bonus-icon">✦</span><span><strong>+1 слот</strong> в доме</span></li>
+            </ul>
+            <a class="btn btn-primary card-button" href="#buy-vip">Купить</a>
+          </article>
+
+          <article class="glass-card rank-card featured">
+            <div class="rank-badge">Популярно</div>
+            <div class="rank-top">
+              <h3>Ultra VIP</h3>
+              <p class="price">1000 <span>руб.</span></p>
+            </div>
+            <ul class="bonus-list">
+              <li><span class="bonus-icon">✦</span><span>Всё из <strong>VIP</strong></span></li>
+              <li><span class="bonus-icon">✦</span><span><strong>/god</strong> — режим непобедимости</span></li>
+              <li><span class="bonus-icon">✦</span><span><strong>/heal</strong> и <strong>/feed</strong> — всегда в форме</span></li>
+              <li><span class="bonus-icon">✦</span><span><strong>+3 слота</strong> для твоих баз</span></li>
+            </ul>
+            <a class="btn btn-primary card-button" href="#buy-ultra">Купить</a>
+          </article>
+
+          <article class="glass-card rank-card">
+            <div class="rank-top">
+              <h3>Legend</h3>
+              <p class="price">2000 <span>руб.</span></p>
+            </div>
+            <ul class="bonus-list">
+              <li><span class="bonus-icon">✦</span><span>Всё из <strong>Ultra VIP</strong></span></li>
+              <li><span class="bonus-icon">✦</span><span><strong>/repair all</strong> — ремонт всего инвентаря</span></li>
+              <li><span class="bonus-icon">✦</span><span><strong>/trade</strong> — сделки без риска</span></li>
+              <li><span class="bonus-icon">✦</span><span>Эксклюзивный кик и <strong>+5 слотов</strong></span></li>
+            </ul>
+            <a class="btn btn-primary card-button" href="#buy-legend">Купить</a>
+          </article>
+
+          <article class="glass-card rank-card god-card">
+            <div class="rank-badge">Максимум</div>
+            <div class="rank-top">
+              <h3>God</h3>
+              <p class="price">5000 <span>руб.</span></p>
+            </div>
+            <ul class="bonus-list">
+              <li><span class="bonus-icon">✦</span><span>Всё из <strong>Legend</strong></span></li>
+              <li><span class="bonus-icon">✦</span><span><strong>/vanish</strong>, <strong>/nick</strong>, <strong>/tp</strong>, <strong>/back</strong></span></li>
+              <li><span class="bonus-icon">✦</span><span><strong>+10 слотов</strong> и полный простор</span></li>
+              <li><span class="bonus-icon">✦</span><span>Доступ к секретному <strong>тест-миру</strong></span></li>
+            </ul>
+            <a class="btn btn-primary card-button" href="#buy-god">Купить</a>
+          </article>
+        </div>
+      </section>
+
+      <section class="kits-section" id="kits" aria-labelledby="kits-title">
+        <div class="section-heading compact">
+          <p class="eyebrow">Сундуки с предметами</p>
+          <h2 id="kits-title">Донатные наборы</h2>
+          <p>Забирай готовые бусты для рейдов, стройки и эпичных PvP-сражений.</p>
+        </div>
+
+        <div class="kit-grid">
+          <article class="glass-card kit-card">
+            <div class="item-icon diamond" aria-hidden="true"></div>
+            <h3>Алмазный кит</h3>
+            <p>Алмазы, зачарованная броня и инструменты, чтобы стартовать как чемпион.</p>
+          </article>
+          <article class="glass-card kit-card">
+            <div class="item-icon potion" aria-hidden="true"></div>
+            <h3>Элитный набор зелий</h3>
+            <p>Скорость, сила, регенерация и огнестойкость — всё для уверенной победы.</p>
+          </article>
+          <article class="glass-card kit-card">
+            <div class="item-icon key" aria-hidden="true"></div>
+            <h3>Ключи от кейсов</h3>
+            <p>Открывай кейсы с редкими ресурсами, косметикой и мощными бонусами.</p>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer" id="rules">
+      <div>
+        <a class="logo footer-logo" href="#top">
+          <span class="logo-mark">K</span>
+          <span>KanMine</span>
+        </a>
+        <p>© 2026 KanMine. Все права защищены. Играй честно, побеждай красиво.</p>
+      </div>
+      <div class="footer-links">
+        <a href="https://vk.com/" target="_blank" rel="noreferrer">VK</a>
+        <a href="https://discord.com/" target="_blank" rel="noreferrer">Discord</a>
+        <a href="#rules">Правила сервера</a>
+      </div>
+    </footer>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
