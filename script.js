@@ -8,6 +8,8 @@ let dpr = 1;
 let particles = [];
 let resizeTimer;
 let animationId;
+let running = false;
+let connectionFrame = 0;
 
 const pointer = {
   x: -9999,
@@ -16,10 +18,24 @@ const pointer = {
 };
 
 function particleCount() {
-  if (reducedMotion) return 42;
-  if (window.innerWidth < 520) return 72;
+  const area = window.innerWidth * window.innerHeight;
+  if (reducedMotion) return Math.min(36, Math.max(22, Math.round(area / 26000)));
+  if (window.innerWidth < 420) return Math.min(58, Math.max(42, Math.round(area / 7600)));
+  if (window.innerWidth < 760) return Math.min(74, Math.max(52, Math.round(area / 6900)));
+  if (window.innerWidth < 1100) return Math.min(96, Math.max(72, Math.round(area / 7200)));
+  return Math.min(132, Math.max(104, Math.round(area / 7800)));
+}
+
+function connectionDistance() {
+  if (window.innerWidth < 520) return 78;
   if (window.innerWidth < 900) return 96;
-  return 130;
+  return 115;
+}
+
+function maxDevicePixelRatio() {
+  if (window.innerWidth < 520) return 1.35;
+  if (window.innerWidth < 900) return 1.6;
+  return 2;
 }
 
 function random(min, max) {
@@ -39,7 +55,7 @@ function createParticle() {
 }
 
 function resize() {
-  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  dpr = Math.min(window.devicePixelRatio || 1, maxDevicePixelRatio());
   width = window.innerWidth;
   height = window.innerHeight;
   canvas.width = Math.floor(width * dpr);
@@ -93,6 +109,9 @@ function drawParticle(particle, time) {
 }
 
 function drawConnections() {
+  const maxDistance = connectionDistance();
+  const maxDistanceSq = maxDistance * maxDistance;
+
   ctx.save();
   ctx.globalCompositeOperation = 'screen';
 
@@ -100,10 +119,13 @@ function drawConnections() {
     for (let j = i + 1; j < particles.length; j += 1) {
       const a = particles[i];
       const b = particles[j];
-      const distance = Math.hypot(a.x - b.x, a.y - b.y);
+      const dx = a.x - b.x;
+      const dy = a.y - b.y;
+      const distanceSq = dx * dx + dy * dy;
 
-      if (distance < 115) {
-        const alpha = (1 - distance / 115) * 0.16;
+      if (distanceSq < maxDistanceSq) {
+        const distance = Math.sqrt(distanceSq);
+        const alpha = (1 - distance / maxDistance) * 0.16;
         ctx.strokeStyle = `rgba(88, 220, 255, ${alpha})`;
         ctx.lineWidth = 1;
         ctx.beginPath();
@@ -118,6 +140,8 @@ function drawConnections() {
 }
 
 function render(time = 0) {
+  if (!running && !reducedMotion) return;
+
   ctx.clearRect(0, 0, width, height);
 
   for (const particle of particles) {
@@ -125,8 +149,25 @@ function render(time = 0) {
     drawParticle(particle, time);
   }
 
-  if (!reducedMotion) drawConnections();
+  connectionFrame += 1;
+  if (!reducedMotion && (window.innerWidth > 520 || connectionFrame % 2 === 0)) {
+    drawConnections();
+  }
+
+  if (!reducedMotion) {
+    animationId = requestAnimationFrame(render);
+  }
+}
+
+function startAnimation() {
+  if (running) return;
+  running = true;
   animationId = requestAnimationFrame(render);
+}
+
+function stopAnimation() {
+  running = false;
+  cancelAnimationFrame(animationId);
 }
 
 function typeText(element, text, speed = 48) {
@@ -252,14 +293,30 @@ window.addEventListener('touchend', () => {
 window.addEventListener('resize', () => {
   window.clearTimeout(resizeTimer);
   resizeTimer = window.setTimeout(() => {
-    cancelAnimationFrame(animationId);
+    stopAnimation();
     resize();
-    render();
+    if (reducedMotion) {
+      render();
+    } else {
+      startAnimation();
+    }
   }, 140);
 });
 
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    stopAnimation();
+  } else if (!reducedMotion) {
+    startAnimation();
+  }
+});
+
 resize();
-render();
+if (reducedMotion) {
+  render();
+} else {
+  startAnimation();
+}
 bootTyping();
 initSocialFlash();
 initEasterEgg();
