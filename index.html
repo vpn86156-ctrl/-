@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Интерактивная киберпанк био-страница KanS1x — Артём, спорт, саморазвитие и соцсети." />
+  <title>KanS1x — Cyber Bio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <canvas id="particleCanvas" aria-hidden="true"></canvas>
+  <div class="noise" aria-hidden="true"></div>
+  <div class="scanline" aria-hidden="true"></div>
+
+  <main class="bio-stage" aria-label="Био KanS1x">
+    <section class="hero-panel">
+      <p class="kicker" data-type="CYBER BIO // ONLINE">CYBER BIO // ONLINE</p>
+
+      <button class="name-button" id="nameButton" type="button" aria-label="KanS1x — нажми пять раз для пасхалки">
+        <span class="glitch-name" id="typedName" data-text="KanS1x"></span>
+      </button>
+
+      <p class="subtitle">
+        <span id="typedMeta" data-text="Артём • 17 лет • Аша, Челябинская область"></span>
+      </p>
+
+      <div class="cards-grid" aria-label="Ключевая информация">
+        <article class="glass-card reveal" style="--delay: .12s">
+          <span class="card-icon">✦</span>
+          <h2>Артём, 17 лет</h2>
+          <p>26.03.2009 — спокойный фокус, сильный темп, движение только вперёд.</p>
+        </article>
+
+        <article class="glass-card reveal" style="--delay: .22s">
+          <span class="card-icon">⌁</span>
+          <h2>Воркаут + бег</h2>
+          <p>Тренировки, выносливость и дисциплина без лишнего шума.</p>
+        </article>
+
+        <article class="glass-card reveal" style="--delay: .32s">
+          <span class="card-icon">◈</span>
+          <h2>Саморазвитие</h2>
+          <p>Каждый день — апгрейд мышления, характера и результата.</p>
+        </article>
+      </div>
+
+      <div class="status-strip reveal" style="--delay: .42s">
+        <div class="online-status">
+          <span class="status-dot"></span>
+          <span id="typedStatus" data-text="В сети"></span>
+        </div>
+        <blockquote>«Мы в силах тормозить, но нога до упора в пол»</blockquote>
+      </div>
+
+      <a class="ask-button reveal" style="--delay: .52s" href="http://t.me/voprosy?start=k6tuck" target="_blank" rel="noreferrer">
+        <span class="envelope" aria-hidden="true"></span>
+        Спросить анонимно
+      </a>
+    </section>
+
+    <aside class="social-dock reveal" style="--delay: .62s" aria-label="Социальные сети">
+      <a class="social-link" href="https://vk.com/nighmare69" target="_blank" rel="noreferrer" aria-label="VK KanS1x">
+        <span>VK</span>
+      </a>
+      <a class="social-link" href="https://t.me/KanS1x" target="_blank" rel="noreferrer" aria-label="Telegram KanS1x">
+        <span>TG</span>
+      </a>
+      <a class="social-link" href="https://twitch.tv/kans1xx" target="_blank" rel="noreferrer" aria-label="Twitch KanS1x">
+        <span>TW</span>
+      </a>
+    </aside>
+
+    <div class="corner-data" aria-label="Скрытая информация">
+      <span>Аша / Челябинская область</span>
+      <span>26.03.2009</span>
+    </div>
+  </main>
+
+  <div class="easter-toast" id="easterToast" role="status" aria-live="polite">
+    <strong>Ты нашёл пасхалку!</strong>
+    <span>KanS1x mode: unlocked.</span>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
