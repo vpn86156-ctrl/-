@@ -172,7 +172,7 @@ function pulseBlast() {
     const e = game.enemies[i];
     const d = Math.hypot(e.x - p.x, e.y - p.y);
     if (d < 210) {
-      e.hp -= e.type === 'boss' ? 6 : 4;
+      e.hp -= e.type === 'boss' ? 14 : 4;
       burst(e.x, e.y, '#62e9ff', 14);
       if (e.hp <= 0) {
         game.enemies.splice(i, 1);
@@ -215,7 +215,7 @@ function spawnEnemy(forcedType = '') {
     tank: { r: rand(24, 33), speed: rand(32, 52), hp: 4 + Math.floor(game.level / 3), color: '#ff9f43' },
     shooter: { r: rand(15, 20), speed: rand(42, 66), hp: 2 + Math.floor(game.level / 6), color: '#a66bff' },
     piercer: { r: rand(11, 16), speed: rand(88, 126), hp: 2, color: '#67ffb0' },
-    boss: { r: 48, speed: 38 + game.level * 1.5, hp: 34 + game.level * 8, color: '#62e9ff' }
+    boss: { r: 46, speed: 30 + game.level * 1.1, hp: 18 + game.level * 4, color: '#62e9ff' }
   }[type];
   game.enemies.push({
     ...p,
@@ -224,6 +224,7 @@ function spawnEnemy(forcedType = '') {
     r: config.r,
     speed: config.speed + game.level * 2.2,
     hp: config.hp,
+    maxHp: config.hp,
     color: config.color,
     rot: rand(0, Math.PI),
     shoot: type === 'boss' ? .7 : rand(.8, 1.8),
@@ -254,7 +255,7 @@ function collectPower(power) {
     for (let i = game.enemies.length - 1; i >= 0; i--) {
       const e = game.enemies[i];
       if (Math.hypot(e.x - power.x, e.y - power.y) < 260) {
-        e.hp -= e.type === 'boss' ? 10 : 99;
+        e.hp -= e.type === 'boss' ? 18 : 99;
         burst(e.x, e.y, power.color, 16);
         if (e.hp <= 0) { game.enemies.splice(i, 1); game.kills++; count++; game.score += e.type === 'boss' ? 1800 : 90; }
       }
@@ -421,13 +422,13 @@ function update(dt) {
       else if (d < 300) accel *= .18;
       e.shoot -= dt;
       if (e.shoot <= 0) {
-        for (let k = 0; k < 7; k++) {
-          const ang = a + (k - 3) * .22;
+        for (let k = 0; k < 5; k++) {
+          const ang = a + (k - 2) * .24;
           const speed = (180 + game.level * 4) * (game.freeze > 0 ? .55 : 1);
           game.bullets.push({ x: e.x, y: e.y, vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed, r: 7, life: 4.5, color: e.color });
         }
-        spawnZone(p.x + rand(-80, 80), p.y + rand(-80, 80), rand(45, 62));
-        e.shoot = Math.max(.85, 1.55 - game.level * .025);
+        if (Math.random() < .55) spawnZone(p.x + rand(-90, 90), p.y + rand(-90, 90), rand(42, 56));
+        e.shoot = Math.max(1.05, 1.85 - game.level * .02);
       }
     }
     e.vx += Math.cos(desired) * accel * dt; e.vy += Math.sin(desired) * accel * dt;
@@ -450,7 +451,7 @@ function update(dt) {
     for (let j = game.enemies.length - 1; j >= 0; j--) {
       const e = game.enemies[j];
       if (Math.hypot(s.x - e.x, s.y - e.y) < s.r + e.r) {
-        e.hp -= s.dmg;
+        e.hp -= e.type === 'boss' ? s.dmg * 2.7 : s.dmg;
         consumed = true;
         burst(s.x, s.y, '#ffffff', 5);
         if (e.hp <= 0) {
@@ -472,7 +473,7 @@ function update(dt) {
     let hit = false;
     for (const b of bladePositions) if (!e.phase && Math.hypot(e.x - b.x, e.y - b.y) < e.r + b.r) hit = true;
     if (hit) {
-      e.hp--;
+      e.hp -= e.type === 'boss' ? 2.4 : 1;
       burst(e.x, e.y, e.color, 8);
       if (e.hp <= 0) {
         game.enemies.splice(i, 1);
@@ -614,7 +615,7 @@ function draw() {
     for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; const rr = i % 2 ? e.r * .72 : e.r; const x = Math.cos(a) * rr, y = Math.sin(a) * rr; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
     ctx.closePath(); ctx.stroke();
     if (e.type === 'piercer') { ctx.globalAlpha = e.phase ? .26 : .62; ctx.fillStyle = e.phase ? '#67ffb0' : 'rgba(103,255,176,.45)'; ctx.fill(); ctx.globalAlpha = 1; }
-    if (e.type === 'boss') { ctx.globalAlpha = .18; ctx.fillStyle = '#62e9ff'; ctx.fill(); ctx.globalAlpha = 1; ctx.fillStyle = '#fff'; ctx.fillRect(-e.r, -e.r - 12, e.r * 2 * Math.max(0, e.hp / (34 + game.level * 8)), 4); }
+    if (e.type === 'boss') { ctx.globalAlpha = .18; ctx.fillStyle = '#62e9ff'; ctx.fill(); ctx.globalAlpha = 1; ctx.fillStyle = '#fff'; ctx.fillRect(-e.r, -e.r - 12, e.r * 2 * Math.max(0, e.hp / (e.maxHp || (18 + game.level * 4))), 4); }
     ctx.restore();
   }
 
@@ -662,7 +663,7 @@ function draw() {
   }
   const boss = game.enemies.find(e => e.type === 'boss');
   if (bossBar) bossBar.classList.toggle('active', Boolean(boss));
-  if (boss && bossName && bossFill) { const maxHp = 34 + game.level * 8; bossName.textContent = `БОСС УРОВЕНЬ ${game.level}`; bossFill.style.width = `${Math.max(0, Math.min(100, boss.hp / maxHp * 100))}%`; }
+  if (boss && bossName && bossFill) { const maxHp = boss.maxHp || (18 + game.level * 4); bossName.textContent = `БОСС УРОВЕНЬ ${game.level}`; bossFill.style.width = `${Math.max(0, Math.min(100, boss.hp / maxHp * 100))}%`; }
 }
 
 function loop(t = 0) {
@@ -691,7 +692,7 @@ window.startNeonCore = start;
 document.getElementById('restartBtn')?.addEventListener('click', start);
 document.getElementById('resumeBtn')?.addEventListener('click', resume);
 document.getElementById('menuBtn')?.addEventListener('click', () => { gameOverPanel.classList.remove('active'); menu.classList.add('active'); state = 'menu'; });
-document.getElementById('howBtn')?.addEventListener('click', () => alert('Двигайся постоянно: стоять на месте нельзя — игра создаёт опасные зоны и пробивателей клинков. Фиолетовые враги стреляют, но пули можно ломать клинками. Зелёные первые секунды проходят через клинки: пережди мигание или убей их рывком, оранжевые танки живучие. Выполняй миссии, бей боссов, авто-пушка стреляет в курсор/палец, заряжай импульс клавишей E/кнопкой ⚡.'));
+document.getElementById('howBtn')?.addEventListener('click', () => alert('Двигайся постоянно: стоять на месте нельзя — игра создаёт опасные зоны и пробивателей клинков. Фиолетовые враги стреляют, но пули можно ломать клинками. Зелёные первые секунды проходят через клинки: пережди мигание или убей их рывком, оранжевые танки живучие. Выполняй миссии, бей боссов, босс теперь убивается пушкой, клинками, бомбой и импульсом. Подлетай, жми E/⚡ и добивай авто-пушкой.'));
 soundBtn?.addEventListener('click', () => { muted = !muted; soundBtn.textContent = muted ? '🔇' : '🔊'; beep(520); });
 if (skillBtn) skillBtn.onclick = pulseBlast;
 
