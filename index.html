@@ -3,56 +3,63 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#060812" />
-  <meta name="description" content="Neon Courier — быстрая аркадная игра про доставку, погони и нитро в неоновом городе." />
-  <title>Neon Courier</title>
+  <meta name="theme-color" content="#ffcf4a" />
+  <meta name="description" content="KapiBoom — мультяшный кликер с прокачкой, кейсами, квестами и мини-событиями." />
+  <title>KapiBoom — кликер</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <canvas id="game"></canvas>
-
-  <header class="hud">
-    <div class="brand"><b>NC</b><span>Neon Courier</span></div>
-    <div class="stats">
-      <div><small>Счёт</small><strong id="score">0</strong></div>
-      <div><small>Время</small><strong id="time">90</strong></div>
-      <div><small>Комбо</small><strong id="combo">x1</strong></div>
-      <div><small>Рекорд</small><strong id="best">0</strong></div>
-    </div>
-  </header>
-
-  <main class="menu active" id="menu">
-    <section class="panel">
-      <p class="eyebrow">новая игра вместо скучной арены</p>
-      <h1>Neon Courier</h1>
-      <p class="lead">Ты курьер в неоновом городе. Хватай посылки, доставляй их в зоны, уходи от дронов-полицейских и держи комбо. Тут нельзя стоять — город живёт на скорости.</p>
-      <div class="cards">
-        <article><b>ПК</b><span>WASD / стрелки — газ и поворот, Space — нитро, Esc — пауза.</span></article>
-        <article><b>Телефон</b><span>Левые кнопки — поворот, правая — газ, ⚡ — нитро.</span></article>
-        <article><b>Цель</b><span>Посылка → доставка → комбо. Чем быстрее маршрут, тем больше очков.</span></article>
+  <div class="bg"></div>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand"><span>KB</span><div><b>KapiBoom</b><small>click • upgrade • loot</small></div></div>
+      <div class="wallet">
+        <div><small>Монеты</small><b id="coins">0</b></div>
+        <div><small>Алмазы</small><b id="gems">0</b></div>
+        <div><small>Уровень</small><b id="level">1</b></div>
       </div>
-      <button class="primary" id="play">Играть</button>
-      <button class="ghost" id="help">Как играть</button>
+      <button class="round" id="resetBtn" title="Сбросить прогресс">↺</button>
+    </header>
+
+    <section class="hero">
+      <aside class="panel quest-panel">
+        <p class="eyebrow">Квест</p>
+        <h2 id="questTitle">Загрузка...</h2>
+        <div class="progress"><i id="questFill"></i></div>
+        <p id="questText"></p>
+        <button class="secondary" id="claimQuest">Забрать награду</button>
+      </aside>
+
+      <section class="click-zone">
+        <div class="levelbar"><i id="xpFill"></i></div>
+        <div class="combo" id="combo">Комбо x1</div>
+        <button class="capy" id="capy" aria-label="Кликнуть капибару">
+          <span class="ears"></span><span class="face"><i></i><i></i><b></b></span>
+        </button>
+        <p class="tap-hint">Жми на капибару. Быстрые клики дают комбо, уровни и алмазы.</p>
+        <button class="primary rush" id="rushBtn">⚡ Бум-режим</button>
+      </section>
+
+      <aside class="panel boss-panel" id="bossPanel">
+        <p class="eyebrow">Рейд</p>
+        <h2 id="bossName">Плюшевый босс</h2>
+        <div class="progress boss"><i id="bossFill"></i></div>
+        <p id="bossText">Появится на 5 уровне.</p>
+        <button class="danger" id="bossHit">Атаковать</button>
+      </aside>
     </section>
+
+    <section class="tabs">
+      <button class="active" data-tab="upgrades">Прокачка</button>
+      <button data-tab="cases">Кейсы</button>
+      <button data-tab="skins">Скины</button>
+      <button data-tab="stats">Статы</button>
+    </section>
+
+    <section class="panel content" id="content"></section>
   </main>
 
-  <section class="result" id="result">
-    <div class="panel small">
-      <p class="eyebrow">заезд окончен</p>
-      <h2 id="resultTitle">Финиш</h2>
-      <p id="resultText"></p>
-      <button class="primary" id="again">Ещё заезд</button>
-      <button class="ghost" id="toMenu">Меню</button>
-    </div>
-  </section>
-
-  <div class="controls" id="controls">
-    <button data-key="left">◀</button>
-    <button data-key="right">▶</button>
-    <button data-key="up">▲</button>
-    <button data-key="nitro">⚡</button>
-  </div>
-
+  <div class="toast" id="toast"></div>
   <script src="script.js"></script>
 </body>
 </html>
