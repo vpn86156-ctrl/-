@@ -16,6 +16,8 @@ const isTouch = matchMedia('(hover: none)').matches;
 if (isTouch) document.documentElement.classList.add('mobile');
 
 let w = 0, h = 0, dpr = 1, last = 0, raf = 0;
+function lowPower() { return isTouch || w < 900; }
+function glow(v) { return lowPower() ? Math.min(6, v * 0.28) : v; }
 let state = 'menu';
 let muted = true;
 let audioCtx = null;
@@ -61,7 +63,7 @@ function resetGame() {
 }
 
 function resize() {
-  dpr = Math.min(devicePixelRatio || 1, innerWidth < 700 ? 1.45 : 2);
+  dpr = Math.min(devicePixelRatio || 1, innerWidth < 700 ? 1 : innerWidth < 1100 ? 1.25 : 1.6);
   w = innerWidth; h = innerHeight;
   canvas.width = Math.floor(w * dpr); canvas.height = Math.floor(h * dpr);
   canvas.style.width = `${w}px`; canvas.style.height = `${h}px`;
@@ -118,6 +120,9 @@ function spawnShard(x = rand(40, w - 40), y = rand(90, h - 90), value = 1) {
 }
 
 function burst(x, y, color = '#62e9ff', count = 16) {
+  count = Math.min(lowPower() ? 10 : 22, Math.ceil(count * (lowPower() ? 0.45 : 0.75)));
+  const maxParticles = lowPower() ? 90 : 170;
+  if (game.particles.length > maxParticles) game.particles.splice(0, game.particles.length - maxParticles);
   for (let i = 0; i < count; i++) {
     const a = rand(0, Math.PI * 2), s = rand(40, 240);
     game.particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: rand(.25, .8), max: .8, r: rand(1.5, 4), color });
@@ -179,7 +184,7 @@ function applyUpgrade(id) {
 function update(dt) {
   game.time += dt * 1000;
   game.spawn -= dt; game.shardSpawn -= dt; game.dashCd = Math.max(0, game.dashCd - dt); game.shake *= .9;
-  if (game.spawn <= 0) { spawnEnemy(); game.spawn = Math.max(.18, .9 - game.level * .035 - game.time / 170000); }
+  if (game.spawn <= 0) { if (game.enemies.length < (lowPower() ? 34 : 62)) spawnEnemy(); game.spawn = Math.max(lowPower() ? .42 : .26, 1.05 - game.level * .03 - game.time / 220000); }
   if (game.shardSpawn <= 0) { spawnShard(); game.shardSpawn = rand(.45, .95); }
 
   const p = game.player;
@@ -190,7 +195,7 @@ function update(dt) {
   if (keys.has('a') || keys.has('arrowleft')) kx -= 1;
   if (keys.has('d') || keys.has('arrowright')) kx += 1;
   if (kx || ky) { const l = Math.hypot(kx, ky); p.vx += kx / l * 620 * game.speed * dt; p.vy += ky / l * 620 * game.speed * dt; }
-  else if (pointer.active || isTouch) { tx = pointer.x; ty = pointer.y; p.vx += (tx - p.x) * 4.8 * dt * game.speed; p.vy += (ty - p.y) * 4.8 * dt * game.speed; }
+  else if (pointer.active || isTouch) { tx = pointer.x; ty = pointer.y; const follow = isTouch ? 9.2 : 6.2; p.vx += (tx - p.x) * follow * dt * game.speed; p.vy += (ty - p.y) * follow * dt * game.speed; }
   p.vx *= Math.pow(.035, dt); p.vy *= Math.pow(.035, dt);
   p.x = clamp(p.x + p.vx * dt, 24, w - 24); p.y = clamp(p.y + p.vy * dt, 82, h - 26);
   p.angle += dt * (2.8 + game.blades * .18);
@@ -261,7 +266,8 @@ function draw() {
   ctx.clearRect(-50, -50, w + 100, h + 100);
 
   ctx.globalCompositeOperation = 'screen';
-  for (let i = 0; i < 80; i++) {
+  const starCount = lowPower() ? 24 : 56;
+  for (let i = 0; i < starCount; i++) {
     const x = (i * 137.5 + game.time * .012) % (w + 120) - 60;
     const y = (i * 91.7 + Math.sin(game.time * .0005 + i) * 40) % (h + 120) - 60;
     ctx.fillStyle = `rgba(98,233,255,${0.04 + (i % 5) * .015})`;
@@ -270,13 +276,13 @@ function draw() {
 
   for (const s of game.shards) {
     ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(s.pulse);
-    ctx.shadowColor = '#ffe985'; ctx.shadowBlur = 18; ctx.fillStyle = '#ffe985';
+    ctx.shadowColor = '#ffe985'; ctx.shadowBlur = glow(18); ctx.fillStyle = '#ffe985';
     ctx.beginPath(); ctx.moveTo(0, -9); ctx.lineTo(8, 0); ctx.lineTo(0, 9); ctx.lineTo(-8, 0); ctx.closePath(); ctx.fill(); ctx.restore();
   }
 
   for (const e of game.enemies) {
     ctx.save(); ctx.translate(e.x, e.y); ctx.rotate(e.rot);
-    ctx.shadowColor = e.color; ctx.shadowBlur = 20; ctx.strokeStyle = e.color; ctx.lineWidth = 3;
+    ctx.shadowColor = e.color; ctx.shadowBlur = glow(20); ctx.strokeStyle = e.color; ctx.lineWidth = lowPower() ? 2 : 3;
     ctx.beginPath();
     for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; const rr = i % 2 ? e.r * .72 : e.r; const x = Math.cos(a) * rr, y = Math.sin(a) * rr; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
     ctx.closePath(); ctx.stroke(); ctx.restore();
@@ -290,20 +296,20 @@ function draw() {
     const a = p.angle + i / game.blades * Math.PI * 2;
     const bx = p.x + Math.cos(a) * 54, by = p.y + Math.sin(a) * 54;
     ctx.save(); ctx.translate(bx, by); ctx.rotate(a + Math.PI / 4);
-    ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 25; ctx.fillStyle = '#ffffff';
+    ctx.shadowColor = '#ffffff'; ctx.shadowBlur = glow(25); ctx.fillStyle = '#ffffff';
     ctx.fillRect(-13, -4, 26, 8); ctx.fillStyle = '#62e9ff'; ctx.fillRect(-4, -13, 8, 26); ctx.restore();
   }
 
   ctx.save(); ctx.translate(p.x, p.y);
-  ctx.shadowColor = game.shield > 0 ? '#67ffb0' : '#62e9ff'; ctx.shadowBlur = 34;
+  ctx.shadowColor = game.shield > 0 ? '#67ffb0' : '#62e9ff'; ctx.shadowBlur = glow(34);
   ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(0, 0, p.r, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = game.shield > 0 ? '#67ffb0' : '#62e9ff'; ctx.beginPath(); ctx.arc(0, 0, p.r * .58, 0, Math.PI * 2); ctx.fill();
   if (game.shield > 0) { ctx.strokeStyle = '#67ffb0'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, 0, p.r + 13, 0, Math.PI * 2); ctx.stroke(); }
   ctx.restore();
 
-  for (const q of game.particles) { ctx.globalAlpha = Math.max(0, q.life / q.max); ctx.fillStyle = q.color; ctx.shadowColor = q.color; ctx.shadowBlur = 16; ctx.beginPath(); ctx.arc(q.x, q.y, q.r, 0, Math.PI * 2); ctx.fill(); }
+  for (const q of game.particles) { ctx.globalAlpha = Math.max(0, q.life / q.max); ctx.fillStyle = q.color; ctx.shadowColor = q.color; ctx.shadowBlur = glow(16); ctx.beginPath(); ctx.arc(q.x, q.y, q.r, 0, Math.PI * 2); ctx.fill(); }
   ctx.globalAlpha = 1;
-  for (const t of game.texts) { ctx.fillStyle = t.color; ctx.font = '900 18px Inter, sans-serif'; ctx.textAlign = 'center'; ctx.shadowColor = t.color; ctx.shadowBlur = 18; ctx.fillText(t.text, t.x, t.y); }
+  for (const t of game.texts) { ctx.fillStyle = t.color; ctx.font = '900 18px Inter, sans-serif'; ctx.textAlign = 'center'; ctx.shadowColor = t.color; ctx.shadowBlur = glow(18); ctx.fillText(t.text, t.x, t.y); }
   ctx.restore();
 
   scoreEl.textContent = Math.floor(game.score).toLocaleString('ru-RU');
