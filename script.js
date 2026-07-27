@@ -150,8 +150,8 @@ function spawnZone(x, y, r = 54) {
 
 function fireBullet(enemy) {
   const a = Math.atan2(game.player.y - enemy.y, game.player.x - enemy.x);
-  const speed = 230 + game.level * 5;
-  game.bullets.push({ x: enemy.x, y: enemy.y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, r: 6, life: 4, color: enemy.color });
+  const speed = 200 + game.level * 4;
+  game.bullets.push({ x: enemy.x, y: enemy.y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, r: 7, life: 4.5, color: enemy.color });
   beep(220, 'square', .035, .015);
 }
 
@@ -305,6 +305,22 @@ function update(dt) {
     const b = game.bullets[i];
     b.life -= dt; b.x += b.vx * dt; b.y += b.vy * dt;
     if (b.life <= 0 || b.x < -40 || b.x > w + 40 || b.y < -40 || b.y > h + 40) { game.bullets.splice(i, 1); continue; }
+
+    let cut = false;
+    for (const blade of bladePositions) {
+      if (Math.hypot(b.x - blade.x, b.y - blade.y) < b.r + blade.r + 7) { cut = true; break; }
+    }
+    if (cut) {
+      game.bullets.splice(i, 1);
+      game.score += Math.floor(3 * Math.min(game.combo, 25));
+      game.combo = Math.min(40, game.combo + .06);
+      game.comboTimer = Math.max(game.comboTimer, 1.4);
+      burst(b.x, b.y, '#62e9ff', 10);
+      if (!lowPower()) textPop('CUT', b.x, b.y, '#62e9ff');
+      beep(540, 'triangle', .035, .018);
+      continue;
+    }
+
     if (Math.hypot(b.x - p.x, b.y - p.y) < b.r + p.r) { game.bullets.splice(i, 1); damage(); continue; }
   }
 
@@ -432,7 +448,7 @@ document.getElementById('startBtn').onclick = start;
 document.getElementById('restartBtn').onclick = start;
 document.getElementById('resumeBtn').onclick = resume;
 document.getElementById('menuBtn').onclick = () => { gameOverPanel.classList.remove('active'); menu.classList.add('active'); state = 'menu'; };
-document.getElementById('howBtn').onclick = () => alert('Двигайся постоянно: стоять на месте нельзя — игра создаёт опасные зоны и пробивателей клинков. Фиолетовые враги стреляют, зелёные проходят через клинки, оранжевые танки живучие. Собирай энергию, делай рывки и выбирай усиления.');
+document.getElementById('howBtn').onclick = () => alert('Двигайся постоянно: стоять на месте нельзя — игра создаёт опасные зоны и пробивателей клинков. Фиолетовые враги стреляют, но пули можно ломать клинками. Зелёные проходят через клинки, оранжевые танки живучие. Собирай энергию, делай рывки и выбирай усиления.');
 soundBtn.onclick = () => { muted = !muted; soundBtn.textContent = muted ? '🔇' : '🔊'; beep(520); };
 
 resize(); resetGame(); draw(); renderRecords();
