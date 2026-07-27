@@ -11,6 +11,7 @@ const upgradeGrid = document.getElementById('upgradeGrid');
 const gameOverPanel = document.getElementById('gameOver');
 const finalText = document.getElementById('finalText');
 const recordsEl = document.getElementById('records');
+const shopEl = document.getElementById('shop');
 const soundBtn = document.getElementById('soundBtn');
 const skillBtn = document.getElementById('skillBtn');
 const bossBar = document.getElementById('bossBar');
@@ -32,6 +33,7 @@ const keys = new Set();
 const pointer = { x: innerWidth / 2, y: innerHeight / 2, active: false, lastTap: 0 };
 
 const recordsKey = 'neon-core-records-v1';
+const metaKey = 'neon-core-meta-v1';
 const upgrades = [
   { id: 'blade', icon: '✦', title: '+1 клинок', desc: 'Ещё один орбитальный клинок вокруг ядра.' },
   { id: 'speed', icon: '➜', title: 'Скорость', desc: 'Ядро быстрее разгоняется и лучше уходит от угроз.' },
@@ -52,6 +54,8 @@ const missionPool = [
 
 let game;
 function resetGame() {
+  const meta = loadMeta();
+  const up = meta.upgrades || {};
   game = {
     time: 0,
     score: 0,
@@ -71,7 +75,7 @@ function resetGame() {
     level: 1,
     xp: 0,
     xpNeed: 8,
-    hp: 3,
+    hp: 3 + (up.hp || 0),
     shield: 0,
     shake: 0,
     spawn: 0,
@@ -84,11 +88,11 @@ function resetGame() {
     dashTime: 0,
     dashPower: 1,
     shotCd: 0,
-    fireRate: .34,
+    fireRate: Math.max(.2, .34 - (up.gun || 0) * .035),
     shotPower: 1,
-    magnet: 95,
+    magnet: 95 + (up.magnet || 0) * 25,
     speed: 1,
-    blades: 2,
+    blades: 2 + (up.blade || 0),
     particles: [],
     enemies: [],
     bullets: [],
@@ -128,6 +132,44 @@ function renderRecords() {
   const list = records();
   recordsEl.innerHTML = list.length ? `<b>Лучшие забеги</b><ol>${list.map(r => `<li>${r.score.toLocaleString('ru-RU')} · ${r.date}</li>`).join('')}</ol>` : '<b>Рекордов пока нет — стань первым.</b>';
 }
+function loadMeta() {
+  const base = { coins: 0, upgrades: { hp: 0, blade: 0, magnet: 0, gun: 0 } };
+  try { return { ...base, ...(JSON.parse(localStorage.getItem(metaKey) || '{}')), upgrades: { ...base.upgrades, ...(JSON.parse(localStorage.getItem(metaKey) || '{}').upgrades || {}) } }; }
+  catch { return base; }
+}
+function saveMeta(meta) { localStorage.setItem(metaKey, JSON.stringify(meta)); }
+function renderShop() {
+  if (!shopEl) return;
+  const meta = loadMeta();
+  const items = [
+    { id: 'hp', title: 'Сердце', desc: '+1 стартовое HP', max: 3, cost: l => 120 + l * 180 },
+    { id: 'blade', title: 'Клинок', desc: '+1 стартовый клинок', max: 2, cost: l => 220 + l * 260 },
+    { id: 'magnet', title: 'Магнит', desc: '+25 радиус сбора', max: 4, cost: l => 140 + l * 170 },
+    { id: 'gun', title: 'Пушка', desc: 'быстрее стартовая стрельба', max: 4, cost: l => 180 + l * 210 }
+  ];
+  shopEl.innerHTML = `<div class="shop-head"><b>Прокачка между забегами</b><span>Монеты: ${meta.coins}</span></div><div class="shop-grid">${items.map(item => {
+    const lvl = meta.upgrades[item.id] || 0;
+    const maxed = lvl >= item.max;
+    const cost = item.cost(lvl);
+    return `<button class="shop-card ${maxed ? 'max' : ''}" data-buy="${item.id}" ${maxed ? 'disabled' : ''}><b>${item.title} · ${lvl}/${item.max}</b><span>${item.desc}</span><small>${maxed ? 'MAX' : cost + ' монет'}</small></button>`;
+  }).join('')}</div>`;
+  document.querySelectorAll('[data-buy]').forEach(btn => btn.onclick = () => buyUpgrade(btn.dataset.buy));
+}
+function buyUpgrade(id) {
+  const meta = loadMeta();
+  const cfg = {
+    hp: { max: 3, cost: l => 120 + l * 180 },
+    blade: { max: 2, cost: l => 220 + l * 260 },
+    magnet: { max: 4, cost: l => 140 + l * 170 },
+    gun: { max: 4, cost: l => 180 + l * 210 }
+  }[id];
+  const lvl = meta.upgrades[id] || 0;
+  if (!cfg || lvl >= cfg.max) return;
+  const cost = cfg.cost(lvl);
+  if (meta.coins < cost) { alert('Не хватает монет. Сыграй ещё забег.'); return; }
+  meta.coins -= cost; meta.upgrades[id] = lvl + 1; saveMeta(meta); renderShop();
+}
+
 
 function startMission() {
   const base = missionPool[game.missionIndex % missionPool.length];
@@ -674,7 +716,7 @@ function loop(t = 0) {
   if (state === 'playing') raf = requestAnimationFrame(loop);
 }
 function start() { resetGame(); state = 'playing'; menu.classList.remove('active'); gameOverPanel.classList.remove('active'); pausePanel.classList.remove('active'); last = performance.now(); loop(last); }
-function endGame() { state = 'over'; cancelAnimationFrame(raf); saveRecord(game.score); renderRecords(); finalText.textContent = `Ты набрал ${Math.floor(game.score).toLocaleString('ru-RU')} очков, дошёл до ${game.level} уровня и разогнал комбо до x${Math.floor(game.combo)}.`; gameOverPanel.classList.add('active'); }
+function endGame() { state = 'over'; cancelAnimationFrame(raf); saveRecord(game.score); const meta = loadMeta(); const earned = Math.max(8, Math.floor(Math.sqrt(game.score) / 2)); meta.coins += earned; saveMeta(meta); renderRecords(); renderShop(); finalText.textContent = `Ты набрал ${Math.floor(game.score).toLocaleString('ru-RU')} очков, заработал ${earned} монет, дошёл до ${game.level} уровня и разогнал комбо до x${Math.floor(game.combo)}.`; gameOverPanel.classList.add('active'); }
 function pause() { if (state !== 'playing') return; state = 'pause'; cancelAnimationFrame(raf); pausePanel.classList.add('active'); }
 function resume() { if (state !== 'pause') return; state = 'playing'; pausePanel.classList.remove('active'); last = performance.now(); loop(last); }
 
@@ -691,9 +733,9 @@ document.getElementById('startBtn')?.addEventListener('click', start);
 window.startNeonCore = start;
 document.getElementById('restartBtn')?.addEventListener('click', start);
 document.getElementById('resumeBtn')?.addEventListener('click', resume);
-document.getElementById('menuBtn')?.addEventListener('click', () => { gameOverPanel.classList.remove('active'); menu.classList.add('active'); state = 'menu'; });
+document.getElementById('menuBtn')?.addEventListener('click', () => { gameOverPanel.classList.remove('active'); menu.classList.add('active'); state = 'menu'; renderShop(); });
 document.getElementById('howBtn')?.addEventListener('click', () => alert('Двигайся постоянно: стоять на месте нельзя — игра создаёт опасные зоны и пробивателей клинков. Фиолетовые враги стреляют, но пули можно ломать клинками. Зелёные первые секунды проходят через клинки: пережди мигание или убей их рывком, оранжевые танки живучие. Выполняй миссии, бей боссов, босс теперь убивается пушкой, клинками, бомбой и импульсом. Подлетай, жми E/⚡ и добивай авто-пушкой.'));
 soundBtn?.addEventListener('click', () => { muted = !muted; soundBtn.textContent = muted ? '🔇' : '🔊'; beep(520); });
 if (skillBtn) skillBtn.onclick = pulseBlast;
 
-resize(); resetGame(); draw(); renderRecords();
+resize(); resetGame(); draw(); renderRecords(); renderShop();
