@@ -3,6 +3,7 @@ const ctx = canvas.getContext('2d');
 const scoreEl = document.getElementById('score');
 const comboEl = document.getElementById('combo');
 const levelEl = document.getElementById('level');
+const missionEl = document.getElementById('mission');
 const menu = document.getElementById('menu');
 const pausePanel = document.getElementById('pausePanel');
 const upgradePanel = document.getElementById('upgradePanel');
@@ -11,6 +12,7 @@ const gameOverPanel = document.getElementById('gameOver');
 const finalText = document.getElementById('finalText');
 const recordsEl = document.getElementById('records');
 const soundBtn = document.getElementById('soundBtn');
+const skillBtn = document.getElementById('skillBtn');
 
 const isTouch = matchMedia('(hover: none)').matches;
 if (isTouch) document.documentElement.classList.add('mobile');
@@ -36,11 +38,27 @@ const upgrades = [
   { id: 'score', icon: '×', title: 'Комбо+', desc: 'Комбо растёт дольше и приносит больше очков.' }
 ];
 
+const missionPool = [
+  { type: 'kills', label: 'Уничтожь врагов', goal: 18 },
+  { type: 'shards', label: 'Собери энергию', goal: 22 },
+  { type: 'cuts', label: 'Разруби пули', goal: 8 },
+  { type: 'dash', label: 'DASH KILL', goal: 4 },
+  { type: 'survive', label: 'Продержись', goal: 35 }
+];
+
 let game;
 function resetGame() {
   game = {
     time: 0,
     score: 0,
+    kills: 0,
+    shardsCollected: 0,
+    bulletsCut: 0,
+    dashKills: 0,
+    pulse: 20,
+    missionIndex: 0,
+    mission: null,
+    bossLevel: 0,
     combo: 1,
     comboTimer: 0,
     level: 1,
@@ -68,6 +86,7 @@ function resetGame() {
     texts: [],
     player: { x: w / 2, y: h / 2, vx: 0, vy: 0, r: 15, angle: 0, lastX: w / 2, lastY: h / 2 }
   };
+  startMission();
 }
 
 function resize() {
@@ -95,6 +114,63 @@ function saveRecord(score) {
 function renderRecords() {
   const list = records();
   recordsEl.innerHTML = list.length ? `<b>Лучшие забеги</b><ol>${list.map(r => `<li>${r.score.toLocaleString('ru-RU')} · ${r.date}</li>`).join('')}</ol>` : '<b>Рекордов пока нет — стань первым.</b>';
+}
+
+function startMission() {
+  const base = missionPool[game.missionIndex % missionPool.length];
+  const bonus = Math.floor(game.level / 3);
+  const goal = base.type === 'survive' ? base.goal + bonus * 8 : base.goal + bonus * 5;
+  game.mission = { ...base, goal, start: missionValue(base.type), done: false };
+}
+function missionValue(type) {
+  if (type === 'kills') return game.kills;
+  if (type === 'shards') return game.shardsCollected;
+  if (type === 'cuts') return game.bulletsCut;
+  if (type === 'dash') return game.dashKills;
+  if (type === 'survive') return Math.floor(game.time / 1000);
+  return 0;
+}
+function missionProgress() {
+  if (!game?.mission) return 0;
+  return Math.max(0, missionValue(game.mission.type) - game.mission.start);
+}
+function checkMission() {
+  if (!game.mission || game.mission.done) return;
+  const progress = missionProgress();
+  if (progress >= game.mission.goal) {
+    game.mission.done = true;
+    game.score += 750 + game.level * 120;
+    game.shield += 1;
+    game.pulse = Math.min(100, game.pulse + 35);
+    textPop('МИССИЯ + ЩИТ', game.player.x, game.player.y - 58, '#ffe985');
+    beep(880, 'triangle', .16, .04);
+    game.missionIndex++;
+    startMission();
+  }
+}
+function addPulse(value) { game.pulse = Math.min(100, game.pulse + value); }
+function pulseBlast() {
+  if (state !== 'playing' || game.pulse < 100) return;
+  game.pulse = 0;
+  const p = game.player;
+  let destroyed = game.bullets.length;
+  game.bullets.length = 0;
+  for (let i = game.enemies.length - 1; i >= 0; i--) {
+    const e = game.enemies[i];
+    const d = Math.hypot(e.x - p.x, e.y - p.y);
+    if (d < 210) {
+      e.hp -= e.type === 'boss' ? 6 : 4;
+      burst(e.x, e.y, '#62e9ff', 14);
+      if (e.hp <= 0) {
+        game.enemies.splice(i, 1);
+        game.kills++;
+        game.score += e.type === 'boss' ? 2500 : 120;
+      }
+    }
+  }
+  burst(p.x, p.y, '#62e9ff', 40);
+  textPop(`ИМПУЛЬС ${destroyed ? '+' + destroyed : ''}`, p.x, p.y - 70, '#62e9ff');
+  beep(120, 'sawtooth', .18, .06);
 }
 
 function beep(freq = 420, type = 'sine', dur = 0.06, gain = 0.04) {
@@ -125,7 +201,8 @@ function spawnEnemy(forcedType = '') {
     runner: { r: rand(9, 14), speed: rand(125, 175), hp: 1, color: '#ff4fd8' },
     tank: { r: rand(24, 33), speed: rand(32, 52), hp: 4 + Math.floor(game.level / 3), color: '#ff9f43' },
     shooter: { r: rand(15, 20), speed: rand(42, 66), hp: 2 + Math.floor(game.level / 6), color: '#a66bff' },
-    piercer: { r: rand(11, 16), speed: rand(88, 126), hp: 2, color: '#67ffb0' }
+    piercer: { r: rand(11, 16), speed: rand(88, 126), hp: 2, color: '#67ffb0' },
+    boss: { r: 48, speed: 38 + game.level * 1.5, hp: 34 + game.level * 8, color: '#62e9ff' }
   }[type];
   game.enemies.push({
     ...p,
@@ -136,7 +213,7 @@ function spawnEnemy(forcedType = '') {
     hp: config.hp,
     color: config.color,
     rot: rand(0, Math.PI),
-    shoot: rand(.8, 1.8),
+    shoot: type === 'boss' ? .7 : rand(.8, 1.8),
     phase: type === 'piercer',
     phaseTimer: type === 'piercer' ? 1.25 : 0
   });
@@ -270,6 +347,20 @@ function update(dt) {
       e.shoot -= dt;
       if (e.shoot <= 0 && d < 620) { fireBullet(e); e.shoot = Math.max(.75, 1.65 - game.level * .035); }
     }
+    if (e.type === 'boss') {
+      if (d < 190) desired = a + Math.PI;
+      else if (d < 300) accel *= .18;
+      e.shoot -= dt;
+      if (e.shoot <= 0) {
+        for (let k = 0; k < 7; k++) {
+          const ang = a + (k - 3) * .22;
+          const speed = 180 + game.level * 4;
+          game.bullets.push({ x: e.x, y: e.y, vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed, r: 7, life: 4.5, color: e.color });
+        }
+        spawnZone(p.x + rand(-80, 80), p.y + rand(-80, 80), rand(45, 62));
+        e.shoot = Math.max(.85, 1.55 - game.level * .025);
+      }
+    }
     e.vx += Math.cos(desired) * accel * dt; e.vy += Math.sin(desired) * accel * dt;
     e.vx *= Math.pow(.08, dt); e.vy *= Math.pow(.08, dt);
     e.x += e.vx * dt; e.y += e.vy * dt; e.rot += dt * (e.type === 'piercer' ? 5 : 2);
@@ -292,7 +383,7 @@ function update(dt) {
       if (e.hp <= 0) {
         game.enemies.splice(i, 1);
         const gain = Math.floor(6 * Math.min(game.combo, 35));
-        game.score += gain; game.combo += .14; game.comboTimer = 3.4; game.xp += 1;
+        game.score += gain; game.combo += .14; game.comboTimer = 3.4; game.xp += e.type === 'boss' ? 8 : 1; game.kills++; addPulse(e.type === 'boss' ? 45 : 5);
         textPop(`+${gain}`, e.x, e.y, '#fff');
         if (Math.random() < .45) spawnShard(e.x, e.y, 2);
         beep(420 + Math.min(500, game.combo * 18), 'triangle', .04, .025);
@@ -303,7 +394,7 @@ function update(dt) {
       if (game.dashTime > 0) {
         game.enemies.splice(i, 1);
         const gain = Math.floor(18 * Math.min(game.combo, 30));
-        game.score += gain; game.combo = Math.min(40, game.combo + .35); game.comboTimer = 3.4; game.xp += 2;
+        game.score += gain; game.combo = Math.min(40, game.combo + .35); game.comboTimer = 3.4; game.xp += 2; game.kills++; game.dashKills++; addPulse(8);
         burst(e.x, e.y, '#67ffb0', 18);
         textPop('DASH KILL', e.x, e.y, '#67ffb0');
         beep(680, 'triangle', .06, .025);
@@ -326,6 +417,7 @@ function update(dt) {
     if (cut) {
       game.bullets.splice(i, 1);
       game.score += Math.floor(3 * Math.min(game.combo, 25));
+      game.bulletsCut++; addPulse(2);
       game.combo = Math.min(40, game.combo + .06);
       game.comboTimer = Math.max(game.comboTimer, 1.4);
       burst(b.x, b.y, '#62e9ff', 10);
@@ -351,13 +443,16 @@ function update(dt) {
     s.x += s.vx * dt; s.y += s.vy * dt; s.vx *= .96; s.vy *= .96; s.pulse += dt * 5;
     if (d < p.r + s.r + 4) {
       game.shards.splice(i, 1);
-      game.xp += s.value; game.score += Math.floor(4 * game.combo); game.comboTimer = 3.2;
+      game.xp += s.value; game.shardsCollected += s.value; addPulse(.8 * s.value); game.score += Math.floor(4 * game.combo); game.comboTimer = 3.2;
       burst(s.x, s.y, '#ffe985', 8); beep(760, 'sine', .035, .02);
     }
   }
 
+  checkMission();
+
   if (game.xp >= game.xpNeed) {
     game.xp -= game.xpNeed; game.level++; game.xpNeed = Math.ceil(game.xpNeed * 1.35 + 3);
+    if (game.level % 4 === 0 && game.bossLevel !== game.level) { game.bossLevel = game.level; spawnEnemy('boss'); textPop('БОСС ВЫШЕЛ', game.player.x, game.player.y - 76, '#62e9ff'); }
     chooseUpgrade(); return;
   }
 
@@ -401,6 +496,7 @@ function draw() {
     for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; const rr = i % 2 ? e.r * .72 : e.r; const x = Math.cos(a) * rr, y = Math.sin(a) * rr; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
     ctx.closePath(); ctx.stroke();
     if (e.type === 'piercer') { ctx.globalAlpha = e.phase ? .26 : .62; ctx.fillStyle = e.phase ? '#67ffb0' : 'rgba(103,255,176,.45)'; ctx.fill(); ctx.globalAlpha = 1; }
+    if (e.type === 'boss') { ctx.globalAlpha = .18; ctx.fillStyle = '#62e9ff'; ctx.fill(); ctx.globalAlpha = 1; ctx.fillStyle = '#fff'; ctx.fillRect(-e.r, -e.r - 12, e.r * 2 * Math.max(0, e.hp / (34 + game.level * 8)), 4); }
     ctx.restore();
   }
 
@@ -436,6 +532,9 @@ function draw() {
   scoreEl.textContent = Math.floor(game.score).toLocaleString('ru-RU');
   comboEl.textContent = `x${Math.max(1, game.combo).toFixed(game.combo < 10 ? 1 : 0)}`;
   levelEl.textContent = `${game.level} · ❤${game.hp} ${game.shield ? `⬡${game.shield}` : ''}`;
+  if (game.mission) missionEl.textContent = `${game.mission.label} ${Math.min(game.mission.goal, Math.floor(missionProgress()))}/${game.mission.goal}`;
+  skillBtn.textContent = game.pulse >= 100 ? '⚡' : `⚡${Math.floor(game.pulse)}`;
+  skillBtn.classList.toggle('ready', game.pulse >= 100);
 }
 
 function loop(t = 0) {
@@ -451,7 +550,7 @@ function pause() { if (state !== 'playing') return; state = 'pause'; cancelAnima
 function resume() { if (state !== 'pause') return; state = 'playing'; pausePanel.classList.remove('active'); last = performance.now(); loop(last); }
 
 addEventListener('resize', resize);
-addEventListener('keydown', e => { keys.add(e.key.toLowerCase()); if (e.code === 'Space') { e.preventDefault(); dash(); } if (e.key === 'Escape') state === 'pause' ? resume() : pause(); });
+addEventListener('keydown', e => { keys.add(e.key.toLowerCase()); if (e.code === 'Space') { e.preventDefault(); dash(); } if (e.key.toLowerCase() === 'e') pulseBlast(); if (e.key === 'Escape') state === 'pause' ? resume() : pause(); });
 addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));
 addEventListener('mousemove', e => { pointer.x = e.clientX; pointer.y = e.clientY; pointer.active = true; });
 addEventListener('mousedown', dash);
@@ -463,7 +562,8 @@ document.getElementById('startBtn').onclick = start;
 document.getElementById('restartBtn').onclick = start;
 document.getElementById('resumeBtn').onclick = resume;
 document.getElementById('menuBtn').onclick = () => { gameOverPanel.classList.remove('active'); menu.classList.add('active'); state = 'menu'; };
-document.getElementById('howBtn').onclick = () => alert('Двигайся постоянно: стоять на месте нельзя — игра создаёт опасные зоны и пробивателей клинков. Фиолетовые враги стреляют, но пули можно ломать клинками. Зелёные первые секунды проходят через клинки: пережди мигание или убей их рывком, оранжевые танки живучие. Собирай энергию, делай рывки и выбирай усиления.');
+document.getElementById('howBtn').onclick = () => alert('Двигайся постоянно: стоять на месте нельзя — игра создаёт опасные зоны и пробивателей клинков. Фиолетовые враги стреляют, но пули можно ломать клинками. Зелёные первые секунды проходят через клинки: пережди мигание или убей их рывком, оранжевые танки живучие. Выполняй миссии, бей боссов, заряжай импульс клавишей E/кнопкой ⚡.');
 soundBtn.onclick = () => { muted = !muted; soundBtn.textContent = muted ? '🔇' : '🔊'; beep(520); };
+skillBtn.onclick = pulseBlast;
 
 resize(); resetGame(); draw(); renderRecords();

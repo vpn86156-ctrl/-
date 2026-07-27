@@ -23,7 +23,9 @@
       <div><span>Очки</span><strong id="score">0</strong></div>
       <div><span>Комбо</span><strong id="combo">x1</strong></div>
       <div><span>Уровень</span><strong id="level">1</strong></div>
+      <div class="mission-stat"><span>Миссия</span><strong id="mission">—</strong></div>
     </div>
+    <button class="sound skill" id="skillBtn" type="button" aria-label="Импульс">⚡</button>
     <button class="sound" id="soundBtn" type="button" aria-label="Звук">🔇</button>
   </div>
 
@@ -33,9 +35,9 @@
       <h1>Neon Core</h1>
       <p class="lead">Удержи ядро живым, собирай энергию, режь врагов орбитальными клинками и разгоняй комбо до безумия.</p>
       <div class="menu-grid">
-        <article><b>ПК</b><span>WASD / стрелки — движение, мышь — цель, Space — рывок</span></article>
-        <article><b>Телефон</b><span>Веди пальцем по экрану, двойной тап — рывок</span></article>
-        <article><b>Цель</b><span>Двигайся постоянно: если стоять на месте, появятся красные зоны, стрелки и зелёные пробиватели уязвимы после мигания или от рывка.</span></article>
+        <article><b>ПК</b><span>WASD / стрелки — движение, мышь — цель, Space — рывок, E — импульс</span></article>
+        <article><b>Телефон</b><span>Веди пальцем по экрану, двойной тап — рывок, кнопка ⚡ — импульс</span></article>
+        <article><b>Цель</b><span>Двигайся постоянно: если стоять на месте, появятся красные зоны, стрелки и миссии, боссы и импульс не дадут стоять на месте.</span></article>
       </div>
       <div class="actions">
         <button class="primary" id="startBtn" type="button">Играть</button>
@@ -69,7 +71,7 @@
     </div>
   </section>
 
-  <div class="mobile-tip" id="mobileTip">Веди пальцем — движение • двойной тап — рывок</div>
+  <div class="mobile-tip" id="mobileTip">Веди пальцем — движение • двойной тап — рывок, кнопка ⚡ — импульс</div>
 
   <script src="script.js"></script>
 </body>
