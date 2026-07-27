@@ -13,6 +13,9 @@ const finalText = document.getElementById('finalText');
 const recordsEl = document.getElementById('records');
 const soundBtn = document.getElementById('soundBtn');
 const skillBtn = document.getElementById('skillBtn');
+const bossBar = document.getElementById('bossBar');
+const bossFill = document.getElementById('bossFill');
+const bossName = document.getElementById('bossName');
 
 const isTouch = matchMedia('(hover: none)').matches;
 if (isTouch) document.documentElement.classList.add('mobile');
@@ -35,7 +38,8 @@ const upgrades = [
   { id: 'magnet', icon: '◎', title: 'Магнит', desc: 'Энергия притягивается с большего расстояния.' },
   { id: 'shield', icon: '⬡', title: 'Щит', desc: 'Один удар врага будет поглощён.' },
   { id: 'dash', icon: '↯', title: 'Рывок+', desc: 'Рывок быстрее перезаряжается.' },
-  { id: 'score', icon: '×', title: 'Комбо+', desc: 'Комбо растёт дольше и приносит больше очков.' }
+  { id: 'score', icon: '×', title: 'Комбо+', desc: 'Комбо растёт дольше и приносит больше очков.' },
+  { id: 'gun', icon: '◆', title: 'Пушка+', desc: 'Неоновый выстрел стреляет быстрее и сильнее.' }
 ];
 
 const missionPool = [
@@ -75,12 +79,16 @@ function resetGame() {
     dashCd: 0,
     dashTime: 0,
     dashPower: 1,
+    shotCd: 0,
+    fireRate: .34,
+    shotPower: 1,
     magnet: 95,
     speed: 1,
     blades: 2,
     particles: [],
     enemies: [],
     bullets: [],
+    shots: [],
     zones: [],
     shards: [],
     texts: [],
@@ -245,6 +253,26 @@ function burst(x, y, color = '#62e9ff', count = 16) {
 }
 function textPop(text, x, y, color = '#fff') { game.texts.push({ text, x, y, life: .8, color }); }
 
+function nearestEnemy() {
+  let best = null, bestD = Infinity;
+  for (const e of game.enemies) {
+    const d = Math.hypot(e.x - game.player.x, e.y - game.player.y);
+    if (d < bestD) { best = e; bestD = d; }
+  }
+  return best;
+}
+function fireShot() {
+  if (state !== 'playing' || game.shotCd > 0) return;
+  const p = game.player;
+  let tx = pointer.x, ty = pointer.y;
+  if (!pointer.active) { const e = nearestEnemy(); if (e) { tx = e.x; ty = e.y; } }
+  let a = Math.atan2(ty - p.y, tx - p.x);
+  if (!Number.isFinite(a)) a = p.angle;
+  const speed = 520;
+  game.shots.push({ x: p.x, y: p.y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, r: 5, life: .9, dmg: game.shotPower, color: '#ffffff' });
+  game.shotCd = game.fireRate;
+}
+
 function dash() {
   if (state !== 'playing' || game.dashCd > 0) return;
   const p = game.player;
@@ -293,15 +321,17 @@ function applyUpgrade(id) {
   if (id === 'shield') game.shield += 1;
   if (id === 'dash') game.dashPower += .18;
   if (id === 'score') game.combo += 1;
+  if (id === 'gun') { game.fireRate = Math.max(.16, game.fireRate - .045); game.shotPower += .35; }
   textPop('UPGRADE', game.player.x, game.player.y - 45, '#ffe985');
   beep(620, 'triangle', .12, .045);
 }
 
 function update(dt) {
   game.time += dt * 1000;
-  game.spawn -= dt; game.shardSpawn -= dt; game.dashCd = Math.max(0, game.dashCd - dt); game.dashTime = Math.max(0, game.dashTime - dt); game.shake *= .9;
+  game.spawn -= dt; game.shardSpawn -= dt; game.dashCd = Math.max(0, game.dashCd - dt); game.shotCd = Math.max(0, game.shotCd - dt); game.dashTime = Math.max(0, game.dashTime - dt); game.shake *= .9;
   if (game.spawn <= 0) { if (game.enemies.length < (lowPower() ? 22 : 54)) spawnEnemy(); game.spawn = Math.max(lowPower() ? .62 : .3, 1.15 - game.level * .026 - game.time / 260000); }
   if (game.shardSpawn <= 0) { if (game.shards.length < (lowPower() ? 34 : 70)) spawnShard(); game.shardSpawn = rand(lowPower() ? .8 : .5, lowPower() ? 1.35 : 1.0); }
+  if (game.enemies.length) fireShot();
 
   const p = game.player;
   let tx = p.x, ty = p.y;
@@ -371,6 +401,31 @@ function update(dt) {
   for (let i = 0; i < game.blades; i++) {
     const a = p.angle + i / game.blades * Math.PI * 2;
     bladePositions.push({ x: p.x + Math.cos(a) * 54, y: p.y + Math.sin(a) * 54, r: 13 });
+  }
+
+  for (let i = game.shots.length - 1; i >= 0; i--) {
+    const s = game.shots[i];
+    s.life -= dt; s.x += s.vx * dt; s.y += s.vy * dt;
+    if (s.life <= 0 || s.x < -50 || s.x > w + 50 || s.y < -50 || s.y > h + 50) { game.shots.splice(i, 1); continue; }
+    let consumed = false;
+    for (let j = game.enemies.length - 1; j >= 0; j--) {
+      const e = game.enemies[j];
+      if (Math.hypot(s.x - e.x, s.y - e.y) < s.r + e.r) {
+        e.hp -= s.dmg;
+        consumed = true;
+        burst(s.x, s.y, '#ffffff', 5);
+        if (e.hp <= 0) {
+          game.enemies.splice(j, 1);
+          const gain = Math.floor((e.type === 'boss' ? 380 : 18) * Math.min(game.combo, 35));
+          game.score += gain; game.combo = Math.min(45, game.combo + .12); game.comboTimer = 3.2;
+          game.xp += e.type === 'boss' ? 8 : 1; game.kills++; addPulse(e.type === 'boss' ? 45 : 4);
+          textPop(e.type === 'boss' ? 'BOSS DOWN' : `+${gain}`, e.x, e.y, e.type === 'boss' ? '#62e9ff' : '#fff');
+          if (Math.random() < .35) spawnShard(e.x, e.y, 2);
+        }
+        break;
+      }
+    }
+    if (consumed) game.shots.splice(i, 1);
   }
 
   for (let i = game.enemies.length - 1; i >= 0; i--) {
@@ -500,6 +555,11 @@ function draw() {
     ctx.restore();
   }
 
+  for (const s of game.shots) {
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
+  }
+
   for (const b of game.bullets) {
     ctx.fillStyle = b.color;
     ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.fill();
@@ -535,6 +595,9 @@ function draw() {
   if (game.mission) missionEl.textContent = `${game.mission.label} ${Math.min(game.mission.goal, Math.floor(missionProgress()))}/${game.mission.goal}`;
   skillBtn.textContent = game.pulse >= 100 ? '⚡' : `⚡${Math.floor(game.pulse)}`;
   skillBtn.classList.toggle('ready', game.pulse >= 100);
+  const boss = game.enemies.find(e => e.type === 'boss');
+  bossBar.classList.toggle('active', Boolean(boss));
+  if (boss) { const maxHp = 34 + game.level * 8; bossName.textContent = `БОСС УРОВЕНЬ ${game.level}`; bossFill.style.width = `${Math.max(0, Math.min(100, boss.hp / maxHp * 100))}%`; }
 }
 
 function loop(t = 0) {
@@ -562,7 +625,7 @@ document.getElementById('startBtn').onclick = start;
 document.getElementById('restartBtn').onclick = start;
 document.getElementById('resumeBtn').onclick = resume;
 document.getElementById('menuBtn').onclick = () => { gameOverPanel.classList.remove('active'); menu.classList.add('active'); state = 'menu'; };
-document.getElementById('howBtn').onclick = () => alert('Двигайся постоянно: стоять на месте нельзя — игра создаёт опасные зоны и пробивателей клинков. Фиолетовые враги стреляют, но пули можно ломать клинками. Зелёные первые секунды проходят через клинки: пережди мигание или убей их рывком, оранжевые танки живучие. Выполняй миссии, бей боссов, заряжай импульс клавишей E/кнопкой ⚡.');
+document.getElementById('howBtn').onclick = () => alert('Двигайся постоянно: стоять на месте нельзя — игра создаёт опасные зоны и пробивателей клинков. Фиолетовые враги стреляют, но пули можно ломать клинками. Зелёные первые секунды проходят через клинки: пережди мигание или убей их рывком, оранжевые танки живучие. Выполняй миссии, бей боссов, авто-пушка стреляет в курсор/палец, заряжай импульс клавишей E/кнопкой ⚡.');
 soundBtn.onclick = () => { muted = !muted; soundBtn.textContent = muted ? '🔇' : '🔊'; beep(520); };
 skillBtn.onclick = pulseBlast;
 
