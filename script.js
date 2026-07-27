@@ -51,6 +51,9 @@ function resetGame() {
     shake: 0,
     spawn: 0,
     shardSpawn: 0,
+    hazardSpawn: 0,
+    idle: 0,
+    idleWarn: 0,
     dashCd: 0,
     dashPower: 1,
     magnet: 95,
@@ -58,9 +61,11 @@ function resetGame() {
     blades: 2,
     particles: [],
     enemies: [],
+    bullets: [],
+    zones: [],
     shards: [],
     texts: [],
-    player: { x: w / 2, y: h / 2, vx: 0, vy: 0, r: 15, angle: 0 }
+    player: { x: w / 2, y: h / 2, vx: 0, vy: 0, r: 15, angle: 0, lastX: w / 2, lastY: h / 2 }
   };
 }
 
@@ -102,23 +107,52 @@ function beep(freq = 420, type = 'sine', dur = 0.06, gain = 0.04) {
   o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime + dur);
 }
 
-function spawnEnemy() {
+function spawnEnemy(forcedType = '') {
   const side = Math.floor(rand(0, 4));
   const p = side === 0 ? { x: rand(0, w), y: -30 } : side === 1 ? { x: w + 30, y: rand(0, h) } : side === 2 ? { x: rand(0, w), y: h + 30 } : { x: -30, y: rand(0, h) };
-  const fast = Math.random() < Math.min(0.28, game.time / 90000);
+  const roll = Math.random();
+  const late = Math.min(1, game.time / 90000 + game.level / 18);
+  let type = forcedType || 'chaser';
+  if (!forcedType) {
+    if (roll < 0.12 + late * 0.12) type = 'piercer';
+    else if (roll < 0.24 + late * 0.18) type = 'shooter';
+    else if (roll < 0.34 + late * 0.12) type = 'tank';
+    else if (roll < 0.48) type = 'runner';
+  }
+  const config = {
+    chaser: { r: rand(14, 22), speed: rand(58, 92), hp: Math.ceil(rand(1, 2 + game.level / 6)), color: '#ff526d' },
+    runner: { r: rand(9, 14), speed: rand(125, 175), hp: 1, color: '#ff4fd8' },
+    tank: { r: rand(24, 33), speed: rand(32, 52), hp: 4 + Math.floor(game.level / 3), color: '#ff9f43' },
+    shooter: { r: rand(15, 20), speed: rand(42, 66), hp: 2 + Math.floor(game.level / 6), color: '#a66bff' },
+    piercer: { r: rand(11, 16), speed: rand(82, 118), hp: 1, color: '#67ffb0' }
+  }[type];
   game.enemies.push({
     ...p,
+    type,
     vx: 0, vy: 0,
-    r: fast ? rand(10, 15) : rand(14, 24),
-    speed: (fast ? rand(95, 145) : rand(52, 92)) + game.level * 3,
-    hp: fast ? 1 : Math.ceil(rand(1, 2 + game.level / 5)),
-    color: fast ? '#ff4fd8' : '#ff526d',
-    rot: rand(0, Math.PI)
+    r: config.r,
+    speed: config.speed + game.level * 2.2,
+    hp: config.hp,
+    color: config.color,
+    rot: rand(0, Math.PI),
+    shoot: rand(.8, 1.8),
+    phase: type === 'piercer'
   });
 }
 
 function spawnShard(x = rand(40, w - 40), y = rand(90, h - 90), value = 1) {
   game.shards.push({ x, y, vx: rand(-20, 20), vy: rand(-20, 20), r: 7, value, pulse: rand(0, 7) });
+}
+
+function spawnZone(x, y, r = 54) {
+  game.zones.push({ x, y, r, life: 2.1, max: 2.1, hot: .85 });
+}
+
+function fireBullet(enemy) {
+  const a = Math.atan2(game.player.y - enemy.y, game.player.x - enemy.x);
+  const speed = 230 + game.level * 5;
+  game.bullets.push({ x: enemy.x, y: enemy.y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, r: 6, life: 4, color: enemy.color });
+  beep(220, 'square', .035, .015);
 }
 
 function burst(x, y, color = '#62e9ff', count = 16) {
@@ -173,7 +207,7 @@ function chooseUpgrade() {
   });
 }
 function applyUpgrade(id) {
-  if (id === 'blade') game.blades++;
+  if (id === 'blade') { if (game.blades < 5) game.blades++; else { game.player.r += .8; game.score += 250; textPop('КЛИНКИ MAX', game.player.x, game.player.y - 60, '#ffe985'); } }
   if (id === 'speed') game.speed += .14;
   if (id === 'magnet') game.magnet += 38;
   if (id === 'shield') game.shield += 1;
@@ -205,11 +239,37 @@ function update(dt) {
   game.comboTimer -= dt;
   if (game.comboTimer <= 0) game.combo = Math.max(1, game.combo - dt * 1.5);
 
+  const moved = Math.hypot(p.x - p.lastX, p.y - p.lastY);
+  const pointerDemand = pointer.active && Math.hypot(pointer.x - p.x, pointer.y - p.y) > 12;
+  const hasInput = kx || ky || pointerDemand;
+  if (moved < 1.8 && !hasInput) game.idle += dt;
+  else game.idle = Math.max(0, game.idle - dt * 2.5);
+  p.lastX = p.x; p.lastY = p.y;
+  if (game.idle > 1.15) {
+    game.hazardSpawn -= dt;
+    game.combo = Math.max(1, game.combo - dt * 3.2);
+    if (game.hazardSpawn <= 0) {
+      spawnZone(p.x + rand(-18, 18), p.y + rand(-18, 18), rand(46, 70));
+      if (Math.random() < .45) spawnEnemy('piercer');
+      textPop('ДВИГАЙСЯ!', p.x, p.y - 42, '#ff526d');
+      game.hazardSpawn = 1.05;
+    }
+  }
+
   for (const e of game.enemies) {
     const a = Math.atan2(p.y - e.y, p.x - e.x);
-    e.vx += Math.cos(a) * e.speed * dt * 2.2; e.vy += Math.sin(a) * e.speed * dt * 2.2;
+    const d = Math.hypot(p.x - e.x, p.y - e.y);
+    let desired = a;
+    let accel = e.speed * 2.2;
+    if (e.type === 'shooter') {
+      if (d < 230) desired = a + Math.PI;
+      else if (d < 320) accel *= .25;
+      e.shoot -= dt;
+      if (e.shoot <= 0 && d < 620) { fireBullet(e); e.shoot = Math.max(.75, 1.65 - game.level * .035); }
+    }
+    e.vx += Math.cos(desired) * accel * dt; e.vy += Math.sin(desired) * accel * dt;
     e.vx *= Math.pow(.08, dt); e.vy *= Math.pow(.08, dt);
-    e.x += e.vx * dt; e.y += e.vy * dt; e.rot += dt * 2;
+    e.x += e.vx * dt; e.y += e.vy * dt; e.rot += dt * (e.type === 'piercer' ? 5 : 2);
   }
 
   const bladePositions = [];
@@ -221,14 +281,14 @@ function update(dt) {
   for (let i = game.enemies.length - 1; i >= 0; i--) {
     const e = game.enemies[i];
     let hit = false;
-    for (const b of bladePositions) if (Math.hypot(e.x - b.x, e.y - b.y) < e.r + b.r) hit = true;
+    for (const b of bladePositions) if (!e.phase && Math.hypot(e.x - b.x, e.y - b.y) < e.r + b.r) hit = true;
     if (hit) {
       e.hp--;
       burst(e.x, e.y, e.color, 8);
       if (e.hp <= 0) {
         game.enemies.splice(i, 1);
-        const gain = Math.floor(10 * game.combo);
-        game.score += gain; game.combo += .18; game.comboTimer = 3.4; game.xp += 1;
+        const gain = Math.floor(6 * Math.min(game.combo, 35));
+        game.score += gain; game.combo += .14; game.comboTimer = 3.4; game.xp += 1;
         textPop(`+${gain}`, e.x, e.y, '#fff');
         if (Math.random() < .45) spawnShard(e.x, e.y, 2);
         beep(420 + Math.min(500, game.combo * 18), 'triangle', .04, .025);
@@ -239,6 +299,20 @@ function update(dt) {
       game.enemies.splice(i, 1);
       damage();
     }
+  }
+
+  for (let i = game.bullets.length - 1; i >= 0; i--) {
+    const b = game.bullets[i];
+    b.life -= dt; b.x += b.vx * dt; b.y += b.vy * dt;
+    if (b.life <= 0 || b.x < -40 || b.x > w + 40 || b.y < -40 || b.y > h + 40) { game.bullets.splice(i, 1); continue; }
+    if (Math.hypot(b.x - p.x, b.y - p.y) < b.r + p.r) { game.bullets.splice(i, 1); damage(); continue; }
+  }
+
+  for (let i = game.zones.length - 1; i >= 0; i--) {
+    const z = game.zones[i];
+    z.life -= dt;
+    if (z.life <= 0) { game.zones.splice(i, 1); continue; }
+    if (z.life < z.hot && Math.hypot(z.x - p.x, z.y - p.y) < z.r + p.r) { game.zones.splice(i, 1); damage(); }
   }
 
   for (let i = game.shards.length - 1; i >= 0; i--) {
@@ -276,6 +350,15 @@ function draw() {
     ctx.beginPath(); ctx.arc(x, y, 1 + (i % 4), 0, Math.PI * 2); ctx.fill();
   }
 
+  for (const z of game.zones) {
+    const ready = z.life < z.hot;
+    ctx.globalAlpha = ready ? .36 : .16;
+    ctx.fillStyle = ready ? '#ff526d' : '#ffe985';
+    ctx.beginPath(); ctx.arc(z.x, z.y, z.r * (1 + Math.sin(game.time * .01) * .04), 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = ready ? '#ff526d' : '#ffe985'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(z.x, z.y, z.r, 0, Math.PI * 2); ctx.stroke();
+  }
+
   for (const s of game.shards) {
     ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(s.pulse);
     ctx.shadowColor = '#ffe985'; ctx.shadowBlur = glow(18); ctx.fillStyle = '#ffe985';
@@ -288,6 +371,11 @@ function draw() {
     ctx.beginPath();
     for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; const rr = i % 2 ? e.r * .72 : e.r; const x = Math.cos(a) * rr, y = Math.sin(a) * rr; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
     ctx.closePath(); ctx.stroke(); ctx.restore();
+  }
+
+  for (const b of game.bullets) {
+    ctx.fillStyle = b.color;
+    ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.fill();
   }
 
   const p = game.player;
@@ -344,7 +432,7 @@ document.getElementById('startBtn').onclick = start;
 document.getElementById('restartBtn').onclick = start;
 document.getElementById('resumeBtn').onclick = resume;
 document.getElementById('menuBtn').onclick = () => { gameOverPanel.classList.remove('active'); menu.classList.add('active'); state = 'menu'; };
-document.getElementById('howBtn').onclick = () => alert('Двигай ядро, собирай жёлтую энергию и не подпускай врагов к центру. Бело-голубые клинки вокруг тебя уничтожают врагов. Space/клик/двойной тап — рывок. На каждом уровне выбирай усиление.');
+document.getElementById('howBtn').onclick = () => alert('Двигайся постоянно: стоять на месте нельзя — игра создаёт опасные зоны и пробивателей клинков. Фиолетовые враги стреляют, зелёные проходят через клинки, оранжевые танки живучие. Собирай энергию, делай рывки и выбирай усиления.');
 soundBtn.onclick = () => { muted = !muted; soundBtn.textContent = muted ? '🔇' : '🔊'; beep(520); };
 
 resize(); resetGame(); draw(); renderRecords();
