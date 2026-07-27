@@ -60,6 +60,9 @@ function resetGame() {
     bulletsCut: 0,
     dashKills: 0,
     pulse: 20,
+    freeze: 0,
+    rapid: 0,
+    fever: 0,
     missionIndex: 0,
     mission: null,
     bossLevel: 0,
@@ -73,6 +76,7 @@ function resetGame() {
     shake: 0,
     spawn: 0,
     shardSpawn: 0,
+    powerSpawn: 7,
     hazardSpawn: 0,
     idle: 0,
     idleWarn: 0,
@@ -90,6 +94,7 @@ function resetGame() {
     bullets: [],
     shots: [],
     zones: [],
+    powers: [],
     shards: [],
     texts: [],
     player: { x: w / 2, y: h / 2, vx: 0, vy: 0, r: 15, angle: 0, lastX: w / 2, lastY: h / 2 }
@@ -231,6 +236,39 @@ function spawnShard(x = rand(40, w - 40), y = rand(90, h - 90), value = 1) {
   game.shards.push({ x, y, vx: rand(-20, 20), vy: rand(-20, 20), r: 7, value, pulse: rand(0, 7) });
 }
 
+function spawnPower() {
+  const types = [
+    { id: 'heal', icon: '❤', color: '#67ffb0' },
+    { id: 'bomb', icon: '✸', color: '#ffe985' },
+    { id: 'freeze', icon: '❄', color: '#62e9ff' },
+    { id: 'rapid', icon: '◆', color: '#ffffff' },
+    { id: 'fever', icon: '×2', color: '#ff4fd8' }
+  ];
+  const type = types[Math.floor(rand(0, types.length))];
+  game.powers.push({ ...type, x: rand(50, w - 50), y: rand(100, h - 80), r: 14, pulse: rand(0, 7), life: 12 });
+}
+function collectPower(power) {
+  if (power.id === 'heal') { game.hp = Math.min(5, game.hp + 1); textPop('+HP', power.x, power.y, power.color); }
+  if (power.id === 'bomb') {
+    let count = 0;
+    for (let i = game.enemies.length - 1; i >= 0; i--) {
+      const e = game.enemies[i];
+      if (Math.hypot(e.x - power.x, e.y - power.y) < 260) {
+        e.hp -= e.type === 'boss' ? 10 : 99;
+        burst(e.x, e.y, power.color, 16);
+        if (e.hp <= 0) { game.enemies.splice(i, 1); game.kills++; count++; game.score += e.type === 'boss' ? 1800 : 90; }
+      }
+    }
+    textPop(`BOMB ${count}`, power.x, power.y, power.color);
+  }
+  if (power.id === 'freeze') { game.freeze = 5.5; textPop('FREEZE', power.x, power.y, power.color); }
+  if (power.id === 'rapid') { game.rapid = 6; textPop('RAPID', power.x, power.y, power.color); }
+  if (power.id === 'fever') { game.fever = 8; textPop('FEVER x2', power.x, power.y, power.color); }
+  addPulse(16);
+  burst(power.x, power.y, power.color, 22);
+  beep(920, 'triangle', .09, .035);
+}
+
 function spawnZone(x, y, r = 54) {
   game.zones.push({ x, y, r, life: 2.1, max: 2.1, hot: .85 });
 }
@@ -270,7 +308,7 @@ function fireShot() {
   if (!Number.isFinite(a)) a = p.angle;
   const speed = 520;
   game.shots.push({ x: p.x, y: p.y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, r: 5, life: .9, dmg: game.shotPower, color: '#ffffff' });
-  game.shotCd = game.fireRate;
+  game.shotCd = game.rapid > 0 ? game.fireRate * .42 : game.fireRate;
 }
 
 function dash() {
@@ -328,9 +366,10 @@ function applyUpgrade(id) {
 
 function update(dt) {
   game.time += dt * 1000;
-  game.spawn -= dt; game.shardSpawn -= dt; game.dashCd = Math.max(0, game.dashCd - dt); game.shotCd = Math.max(0, game.shotCd - dt); game.dashTime = Math.max(0, game.dashTime - dt); game.shake *= .9;
+  game.spawn -= dt; game.shardSpawn -= dt; game.powerSpawn -= dt; game.freeze = Math.max(0, game.freeze - dt); game.rapid = Math.max(0, game.rapid - dt); game.fever = Math.max(0, game.fever - dt); game.dashCd = Math.max(0, game.dashCd - dt); game.shotCd = Math.max(0, game.shotCd - dt); game.dashTime = Math.max(0, game.dashTime - dt); game.shake *= .9;
   if (game.spawn <= 0) { if (game.enemies.length < (lowPower() ? 22 : 54)) spawnEnemy(); game.spawn = Math.max(lowPower() ? .62 : .3, 1.15 - game.level * .026 - game.time / 260000); }
   if (game.shardSpawn <= 0) { if (game.shards.length < (lowPower() ? 34 : 70)) spawnShard(); game.shardSpawn = rand(lowPower() ? .8 : .5, lowPower() ? 1.35 : 1.0); }
+  if (game.powerSpawn <= 0) { if (game.powers.length < 3) spawnPower(); game.powerSpawn = rand(8, 13); }
   if (game.enemies.length) fireShot();
 
   const p = game.player;
@@ -370,7 +409,7 @@ function update(dt) {
     const a = Math.atan2(p.y - e.y, p.x - e.x);
     const d = Math.hypot(p.x - e.x, p.y - e.y);
     let desired = a;
-    let accel = e.speed * 2.2;
+    let accel = e.speed * 2.2 * (game.freeze > 0 ? .32 : 1);
     if (e.type === 'shooter') {
       if (d < 230) desired = a + Math.PI;
       else if (d < 320) accel *= .25;
@@ -384,7 +423,7 @@ function update(dt) {
       if (e.shoot <= 0) {
         for (let k = 0; k < 7; k++) {
           const ang = a + (k - 3) * .22;
-          const speed = 180 + game.level * 4;
+          const speed = (180 + game.level * 4) * (game.freeze > 0 ? .55 : 1);
           game.bullets.push({ x: e.x, y: e.y, vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed, r: 7, life: 4.5, color: e.color });
         }
         spawnZone(p.x + rand(-80, 80), p.y + rand(-80, 80), rand(45, 62));
@@ -417,7 +456,7 @@ function update(dt) {
         if (e.hp <= 0) {
           game.enemies.splice(j, 1);
           const gain = Math.floor((e.type === 'boss' ? 380 : 18) * Math.min(game.combo, 35));
-          game.score += gain; game.combo = Math.min(45, game.combo + .12); game.comboTimer = 3.2;
+          game.score += game.fever > 0 ? gain * 2 : gain; game.combo = Math.min(45, game.combo + .12); game.comboTimer = 3.2;
           game.xp += e.type === 'boss' ? 8 : 1; game.kills++; addPulse(e.type === 'boss' ? 45 : 4);
           textPop(e.type === 'boss' ? 'BOSS DOWN' : `+${gain}`, e.x, e.y, e.type === 'boss' ? '#62e9ff' : '#fff');
           if (Math.random() < .35) spawnShard(e.x, e.y, 2);
@@ -438,7 +477,7 @@ function update(dt) {
       if (e.hp <= 0) {
         game.enemies.splice(i, 1);
         const gain = Math.floor(6 * Math.min(game.combo, 35));
-        game.score += gain; game.combo += .14; game.comboTimer = 3.4; game.xp += e.type === 'boss' ? 8 : 1; game.kills++; addPulse(e.type === 'boss' ? 45 : 5);
+        game.score += game.fever > 0 ? gain * 2 : gain; game.combo += .14; game.comboTimer = 3.4; game.xp += e.type === 'boss' ? 8 : 1; game.kills++; addPulse(e.type === 'boss' ? 45 : 5);
         textPop(`+${gain}`, e.x, e.y, '#fff');
         if (Math.random() < .45) spawnShard(e.x, e.y, 2);
         beep(420 + Math.min(500, game.combo * 18), 'triangle', .04, .025);
@@ -471,7 +510,7 @@ function update(dt) {
     }
     if (cut) {
       game.bullets.splice(i, 1);
-      game.score += Math.floor(3 * Math.min(game.combo, 25));
+      game.score += Math.floor((game.fever > 0 ? 6 : 3) * Math.min(game.combo, 25));
       game.bulletsCut++; addPulse(2);
       game.combo = Math.min(40, game.combo + .06);
       game.comboTimer = Math.max(game.comboTimer, 1.4);
@@ -498,8 +537,23 @@ function update(dt) {
     s.x += s.vx * dt; s.y += s.vy * dt; s.vx *= .96; s.vy *= .96; s.pulse += dt * 5;
     if (d < p.r + s.r + 4) {
       game.shards.splice(i, 1);
-      game.xp += s.value; game.shardsCollected += s.value; addPulse(.8 * s.value); game.score += Math.floor(4 * game.combo); game.comboTimer = 3.2;
+      game.xp += s.value; game.shardsCollected += s.value; addPulse(.8 * s.value); game.score += Math.floor((game.fever > 0 ? 8 : 4) * game.combo); game.comboTimer = 3.2;
       burst(s.x, s.y, '#ffe985', 8); beep(760, 'sine', .035, .02);
+    }
+  }
+
+  for (let i = game.powers.length - 1; i >= 0; i--) {
+    const power = game.powers[i];
+    power.life -= dt; power.pulse += dt * 5;
+    if (power.life <= 0) { game.powers.splice(i, 1); continue; }
+    const d = Math.hypot(power.x - p.x, power.y - p.y);
+    if (d < game.magnet * .75) {
+      power.x += (p.x - power.x) / (d || 1) * 190 * dt;
+      power.y += (p.y - power.y) / (d || 1) * 190 * dt;
+    }
+    if (d < p.r + power.r + 4) {
+      game.powers.splice(i, 1);
+      collectPower(power);
     }
   }
 
@@ -536,6 +590,15 @@ function draw() {
     ctx.beginPath(); ctx.arc(z.x, z.y, z.r * (1 + Math.sin(game.time * .01) * .04), 0, Math.PI * 2); ctx.fill();
     ctx.globalAlpha = 1;
     ctx.strokeStyle = ready ? '#ff526d' : '#ffe985'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(z.x, z.y, z.r, 0, Math.PI * 2); ctx.stroke();
+  }
+
+  for (const power of game.powers) {
+    const rr = power.r + Math.sin(power.pulse) * 2;
+    ctx.fillStyle = power.color;
+    ctx.beginPath(); ctx.arc(power.x, power.y, rr, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#050711';
+    ctx.font = power.id === 'fever' ? '900 10px Inter, sans-serif' : '900 15px Inter, sans-serif';
+    ctx.textAlign = 'center'; ctx.fillText(power.icon, power.x, power.y + 5);
   }
 
   for (const s of game.shards) {
@@ -591,7 +654,7 @@ function draw() {
 
   scoreEl.textContent = Math.floor(game.score).toLocaleString('ru-RU');
   comboEl.textContent = `x${Math.max(1, game.combo).toFixed(game.combo < 10 ? 1 : 0)}`;
-  levelEl.textContent = `${game.level} · ❤${game.hp} ${game.shield ? `⬡${game.shield}` : ''}`;
+  levelEl.textContent = `${game.level} · ❤${game.hp} ${game.shield ? `⬡${game.shield}` : ''}${game.freeze ? ' ❄' : ''}${game.rapid ? ' ◆' : ''}${game.fever ? ' x2' : ''}`;
   if (missionEl && game.mission) missionEl.textContent = `${game.mission.label} ${Math.min(game.mission.goal, Math.floor(missionProgress()))}/${game.mission.goal}`;
   if (skillBtn) {
     skillBtn.textContent = game.pulse >= 100 ? '⚡' : `⚡${Math.floor(game.pulse)}`;
