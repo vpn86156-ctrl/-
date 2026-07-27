@@ -592,12 +592,14 @@ function draw() {
   scoreEl.textContent = Math.floor(game.score).toLocaleString('ru-RU');
   comboEl.textContent = `x${Math.max(1, game.combo).toFixed(game.combo < 10 ? 1 : 0)}`;
   levelEl.textContent = `${game.level} · ❤${game.hp} ${game.shield ? `⬡${game.shield}` : ''}`;
-  if (game.mission) missionEl.textContent = `${game.mission.label} ${Math.min(game.mission.goal, Math.floor(missionProgress()))}/${game.mission.goal}`;
-  skillBtn.textContent = game.pulse >= 100 ? '⚡' : `⚡${Math.floor(game.pulse)}`;
-  skillBtn.classList.toggle('ready', game.pulse >= 100);
+  if (missionEl && game.mission) missionEl.textContent = `${game.mission.label} ${Math.min(game.mission.goal, Math.floor(missionProgress()))}/${game.mission.goal}`;
+  if (skillBtn) {
+    skillBtn.textContent = game.pulse >= 100 ? '⚡' : `⚡${Math.floor(game.pulse)}`;
+    skillBtn.classList.toggle('ready', game.pulse >= 100);
+  }
   const boss = game.enemies.find(e => e.type === 'boss');
-  bossBar.classList.toggle('active', Boolean(boss));
-  if (boss) { const maxHp = 34 + game.level * 8; bossName.textContent = `БОСС УРОВЕНЬ ${game.level}`; bossFill.style.width = `${Math.max(0, Math.min(100, boss.hp / maxHp * 100))}%`; }
+  if (bossBar) bossBar.classList.toggle('active', Boolean(boss));
+  if (boss && bossName && bossFill) { const maxHp = 34 + game.level * 8; bossName.textContent = `БОСС УРОВЕНЬ ${game.level}`; bossFill.style.width = `${Math.max(0, Math.min(100, boss.hp / maxHp * 100))}%`; }
 }
 
 function loop(t = 0) {
@@ -621,12 +623,13 @@ addEventListener('touchstart', e => { const touch = e.touches[0]; if (!touch) re
 addEventListener('touchmove', e => { const touch = e.touches[0]; if (!touch) return; pointer.x = touch.clientX; pointer.y = touch.clientY; pointer.active = true; }, { passive: true });
 addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
 
-document.getElementById('startBtn').onclick = start;
-document.getElementById('restartBtn').onclick = start;
-document.getElementById('resumeBtn').onclick = resume;
-document.getElementById('menuBtn').onclick = () => { gameOverPanel.classList.remove('active'); menu.classList.add('active'); state = 'menu'; };
-document.getElementById('howBtn').onclick = () => alert('Двигайся постоянно: стоять на месте нельзя — игра создаёт опасные зоны и пробивателей клинков. Фиолетовые враги стреляют, но пули можно ломать клинками. Зелёные первые секунды проходят через клинки: пережди мигание или убей их рывком, оранжевые танки живучие. Выполняй миссии, бей боссов, авто-пушка стреляет в курсор/палец, заряжай импульс клавишей E/кнопкой ⚡.');
-soundBtn.onclick = () => { muted = !muted; soundBtn.textContent = muted ? '🔇' : '🔊'; beep(520); };
-skillBtn.onclick = pulseBlast;
+document.getElementById('startBtn')?.addEventListener('click', start);
+window.startNeonCore = start;
+document.getElementById('restartBtn')?.addEventListener('click', start);
+document.getElementById('resumeBtn')?.addEventListener('click', resume);
+document.getElementById('menuBtn')?.addEventListener('click', () => { gameOverPanel.classList.remove('active'); menu.classList.add('active'); state = 'menu'; });
+document.getElementById('howBtn')?.addEventListener('click', () => alert('Двигайся постоянно: стоять на месте нельзя — игра создаёт опасные зоны и пробивателей клинков. Фиолетовые враги стреляют, но пули можно ломать клинками. Зелёные первые секунды проходят через клинки: пережди мигание или убей их рывком, оранжевые танки живучие. Выполняй миссии, бей боссов, авто-пушка стреляет в курсор/палец, заряжай импульс клавишей E/кнопкой ⚡.'));
+soundBtn?.addEventListener('click', () => { muted = !muted; soundBtn.textContent = muted ? '🔇' : '🔊'; beep(520); });
+if (skillBtn) skillBtn.onclick = pulseBlast;
 
 resize(); resetGame(); draw(); renderRecords();
