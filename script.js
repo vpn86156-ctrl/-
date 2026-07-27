@@ -55,6 +55,7 @@ function resetGame() {
     idle: 0,
     idleWarn: 0,
     dashCd: 0,
+    dashTime: 0,
     dashPower: 1,
     magnet: 95,
     speed: 1,
@@ -124,7 +125,7 @@ function spawnEnemy(forcedType = '') {
     runner: { r: rand(9, 14), speed: rand(125, 175), hp: 1, color: '#ff4fd8' },
     tank: { r: rand(24, 33), speed: rand(32, 52), hp: 4 + Math.floor(game.level / 3), color: '#ff9f43' },
     shooter: { r: rand(15, 20), speed: rand(42, 66), hp: 2 + Math.floor(game.level / 6), color: '#a66bff' },
-    piercer: { r: rand(11, 16), speed: rand(82, 118), hp: 1, color: '#67ffb0' }
+    piercer: { r: rand(11, 16), speed: rand(88, 126), hp: 2, color: '#67ffb0' }
   }[type];
   game.enemies.push({
     ...p,
@@ -136,7 +137,8 @@ function spawnEnemy(forcedType = '') {
     color: config.color,
     rot: rand(0, Math.PI),
     shoot: rand(.8, 1.8),
-    phase: type === 'piercer'
+    phase: type === 'piercer',
+    phaseTimer: type === 'piercer' ? 1.25 : 0
   });
 }
 
@@ -179,6 +181,7 @@ function dash() {
   p.vx += ax / len * 760 * game.dashPower;
   p.vy += ay / len * 760 * game.dashPower;
   game.dashCd = Math.max(.55, 1.25 - game.dashPower * .1);
+  game.dashTime = .22;
   game.shake = 6;
   burst(p.x, p.y, '#ffffff', 24);
   beep(180, 'sawtooth', .08, .035);
@@ -219,7 +222,7 @@ function applyUpgrade(id) {
 
 function update(dt) {
   game.time += dt * 1000;
-  game.spawn -= dt; game.shardSpawn -= dt; game.dashCd = Math.max(0, game.dashCd - dt); game.shake *= .9;
+  game.spawn -= dt; game.shardSpawn -= dt; game.dashCd = Math.max(0, game.dashCd - dt); game.dashTime = Math.max(0, game.dashTime - dt); game.shake *= .9;
   if (game.spawn <= 0) { if (game.enemies.length < (lowPower() ? 22 : 54)) spawnEnemy(); game.spawn = Math.max(lowPower() ? .62 : .3, 1.15 - game.level * .026 - game.time / 260000); }
   if (game.shardSpawn <= 0) { if (game.shards.length < (lowPower() ? 34 : 70)) spawnShard(); game.shardSpawn = rand(lowPower() ? .8 : .5, lowPower() ? 1.35 : 1.0); }
 
@@ -270,6 +273,7 @@ function update(dt) {
     e.vx += Math.cos(desired) * accel * dt; e.vy += Math.sin(desired) * accel * dt;
     e.vx *= Math.pow(.08, dt); e.vy *= Math.pow(.08, dt);
     e.x += e.vx * dt; e.y += e.vy * dt; e.rot += dt * (e.type === 'piercer' ? 5 : 2);
+    if (e.phaseTimer > 0) { e.phaseTimer -= dt; if (e.phaseTimer <= 0) e.phase = false; }
   }
 
   const bladePositions = [];
@@ -296,8 +300,17 @@ function update(dt) {
       continue;
     }
     if (Math.hypot(e.x - p.x, e.y - p.y) < e.r + p.r) {
-      game.enemies.splice(i, 1);
-      damage();
+      if (game.dashTime > 0) {
+        game.enemies.splice(i, 1);
+        const gain = Math.floor(18 * Math.min(game.combo, 30));
+        game.score += gain; game.combo = Math.min(40, game.combo + .35); game.comboTimer = 3.4; game.xp += 2;
+        burst(e.x, e.y, '#67ffb0', 18);
+        textPop('DASH KILL', e.x, e.y, '#67ffb0');
+        beep(680, 'triangle', .06, .025);
+      } else {
+        game.enemies.splice(i, 1);
+        damage();
+      }
     }
   }
 
@@ -386,7 +399,9 @@ function draw() {
     ctx.shadowColor = e.color; ctx.shadowBlur = glow(20); ctx.strokeStyle = e.color; ctx.lineWidth = lowPower() ? 2 : 3;
     ctx.beginPath();
     for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; const rr = i % 2 ? e.r * .72 : e.r; const x = Math.cos(a) * rr, y = Math.sin(a) * rr; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
-    ctx.closePath(); ctx.stroke(); ctx.restore();
+    ctx.closePath(); ctx.stroke();
+    if (e.type === 'piercer') { ctx.globalAlpha = e.phase ? .26 : .62; ctx.fillStyle = e.phase ? '#67ffb0' : 'rgba(103,255,176,.45)'; ctx.fill(); ctx.globalAlpha = 1; }
+    ctx.restore();
   }
 
   for (const b of game.bullets) {
@@ -448,7 +463,7 @@ document.getElementById('startBtn').onclick = start;
 document.getElementById('restartBtn').onclick = start;
 document.getElementById('resumeBtn').onclick = resume;
 document.getElementById('menuBtn').onclick = () => { gameOverPanel.classList.remove('active'); menu.classList.add('active'); state = 'menu'; };
-document.getElementById('howBtn').onclick = () => alert('Двигайся постоянно: стоять на месте нельзя — игра создаёт опасные зоны и пробивателей клинков. Фиолетовые враги стреляют, но пули можно ломать клинками. Зелёные проходят через клинки, оранжевые танки живучие. Собирай энергию, делай рывки и выбирай усиления.');
+document.getElementById('howBtn').onclick = () => alert('Двигайся постоянно: стоять на месте нельзя — игра создаёт опасные зоны и пробивателей клинков. Фиолетовые враги стреляют, но пули можно ломать клинками. Зелёные первые секунды проходят через клинки: пережди мигание или убей их рывком, оранжевые танки живучие. Собирай энергию, делай рывки и выбирай усиления.');
 soundBtn.onclick = () => { muted = !muted; soundBtn.textContent = muted ? '🔇' : '🔊'; beep(520); };
 
 resize(); resetGame(); draw(); renderRecords();
