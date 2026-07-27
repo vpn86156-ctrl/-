@@ -16,8 +16,10 @@ const isTouch = matchMedia('(hover: none)').matches;
 if (isTouch) document.documentElement.classList.add('mobile');
 
 let w = 0, h = 0, dpr = 1, last = 0, raf = 0;
-function lowPower() { return isTouch || w < 900; }
-function glow(v) { return lowPower() ? Math.min(6, v * 0.28) : v; }
+const PERFORMANCE_MODE = true;
+const TARGET_FRAME = 1000 / 45;
+function lowPower() { return PERFORMANCE_MODE || isTouch || w < 1200; }
+function glow(v) { return lowPower() ? 0 : v; }
 let state = 'menu';
 let muted = true;
 let audioCtx = null;
@@ -63,7 +65,7 @@ function resetGame() {
 }
 
 function resize() {
-  dpr = Math.min(devicePixelRatio || 1, innerWidth < 700 ? 1 : innerWidth < 1100 ? 1.25 : 1.6);
+  dpr = Math.min(devicePixelRatio || 1, 1);
   w = innerWidth; h = innerHeight;
   canvas.width = Math.floor(w * dpr); canvas.height = Math.floor(h * dpr);
   canvas.style.width = `${w}px`; canvas.style.height = `${h}px`;
@@ -120,8 +122,8 @@ function spawnShard(x = rand(40, w - 40), y = rand(90, h - 90), value = 1) {
 }
 
 function burst(x, y, color = '#62e9ff', count = 16) {
-  count = Math.min(lowPower() ? 10 : 22, Math.ceil(count * (lowPower() ? 0.45 : 0.75)));
-  const maxParticles = lowPower() ? 90 : 170;
+  count = Math.min(lowPower() ? 5 : 18, Math.ceil(count * (lowPower() ? 0.25 : 0.65)));
+  const maxParticles = lowPower() ? 45 : 140;
   if (game.particles.length > maxParticles) game.particles.splice(0, game.particles.length - maxParticles);
   for (let i = 0; i < count; i++) {
     const a = rand(0, Math.PI * 2), s = rand(40, 240);
@@ -184,8 +186,8 @@ function applyUpgrade(id) {
 function update(dt) {
   game.time += dt * 1000;
   game.spawn -= dt; game.shardSpawn -= dt; game.dashCd = Math.max(0, game.dashCd - dt); game.shake *= .9;
-  if (game.spawn <= 0) { if (game.enemies.length < (lowPower() ? 34 : 62)) spawnEnemy(); game.spawn = Math.max(lowPower() ? .42 : .26, 1.05 - game.level * .03 - game.time / 220000); }
-  if (game.shardSpawn <= 0) { spawnShard(); game.shardSpawn = rand(.45, .95); }
+  if (game.spawn <= 0) { if (game.enemies.length < (lowPower() ? 22 : 54)) spawnEnemy(); game.spawn = Math.max(lowPower() ? .62 : .3, 1.15 - game.level * .026 - game.time / 260000); }
+  if (game.shardSpawn <= 0) { if (game.shards.length < (lowPower() ? 34 : 70)) spawnShard(); game.shardSpawn = rand(lowPower() ? .8 : .5, lowPower() ? 1.35 : 1.0); }
 
   const p = game.player;
   let tx = p.x, ty = p.y;
@@ -266,7 +268,7 @@ function draw() {
   ctx.clearRect(-50, -50, w + 100, h + 100);
 
   ctx.globalCompositeOperation = 'screen';
-  const starCount = lowPower() ? 24 : 56;
+  const starCount = lowPower() ? 8 : 48;
   for (let i = 0; i < starCount; i++) {
     const x = (i * 137.5 + game.time * .012) % (w + 120) - 60;
     const y = (i * 91.7 + Math.sin(game.time * .0005 + i) * 40) % (h + 120) - 60;
@@ -319,7 +321,8 @@ function draw() {
 
 function loop(t = 0) {
   if (state !== 'playing') return;
-  const dt = Math.min(.033, (t - last) / 1000 || .016); last = t;
+  if (t - last < TARGET_FRAME) { raf = requestAnimationFrame(loop); return; }
+  const dt = Math.min(.045, (t - last) / 1000 || .022); last = t;
   update(dt); draw();
   if (state === 'playing') raf = requestAnimationFrame(loop);
 }

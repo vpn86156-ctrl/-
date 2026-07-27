@@ -6,3 +6,8 @@
   .brand,.stats,.sound,.panel,.pause-panel,.upgrade-panel{backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);box-shadow:0 18px 58px rgba(0,0,0,.42),0 0 28px rgba(98,233,255,.08)}
   .hero-panel h1{text-shadow:0 0 12px rgba(255,255,255,.72),0 0 34px rgba(98,233,255,.52)}
 }
+
+/* Ultra performance pass for weak laptops */
+body:before{display:none}
+.bg-orb{display:none}
+@media(min-width:901px){.brand,.stats,.sound,.panel,.pause-panel,.upgrade-panel{backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:0 16px 44px rgba(0,0,0,.38)}.hero-panel h1{text-shadow:0 0 10px rgba(255,255,255,.7),0 0 26px rgba(98,233,255,.45)}}
